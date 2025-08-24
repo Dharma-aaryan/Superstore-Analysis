@@ -98,13 +98,13 @@ def simulate_profit_impact(df, max_discount_rate):
     
     try:
         # Calculate current total profit
-        current_profit = df['Profit'].sum()
+        current_profit = df['profit'].sum()
         
         # Create simulation dataframe
         sim_df = df.copy()
         
         # Identify orders with discounts above the cap
-        high_discount_mask = sim_df['Discount'] > max_discount_rate
+        high_discount_mask = sim_df['discount'] > max_discount_rate
         
         if high_discount_mask.sum() == 0:
             # No orders exceed the discount cap
@@ -116,9 +116,9 @@ def simulate_profit_impact(df, max_discount_rate):
         # For orders exceeding the discount cap, estimate new profit
         # Assumption: reducing discount proportionally increases profit
         for idx in sim_df[high_discount_mask].index:
-            original_discount = sim_df.loc[idx, 'Discount']
-            original_sales = sim_df.loc[idx, 'Sales']
-            original_profit = sim_df.loc[idx, 'Profit']
+            original_discount = sim_df.loc[idx, 'discount']
+            original_sales = sim_df.loc[idx, 'sales']
+            original_profit = sim_df.loc[idx, 'profit']
             
             # Calculate original cost (Sales - Profit)
             original_cost = original_sales - original_profit

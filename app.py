@@ -118,16 +118,15 @@ def executive_summary_tab(filtered):
     
     st.divider()
     
-    # Choropleth map toggle and display
-    show_choropleth = st.toggle("Show choropleth map")
-    if show_choropleth and 'state' in filtered.columns:
-        st.subheader("🗺️ Geographic Performance")
-        
-        # Map options
-        col1, col2 = st.columns(2)
-        with col1:
-            map_metric = st.selectbox("Map Metric", ["Profit", "Profit Margin"], key="exec_map_metric")
-        
+    # Geographic Performance Map - Always shown
+    st.subheader("🗺️ Geographic Performance")
+    
+    # Map options
+    col1, col2 = st.columns(2)
+    with col1:
+        map_metric = st.selectbox("Map Metric", ["Profit", "Profit Margin"], key="exec_map_metric")
+    
+    if 'state' in filtered.columns:
         if map_metric == "Profit":
             map_fig = plot_state_map(filtered, value_col='profit', title='Profit by State')
         else:
@@ -138,17 +137,39 @@ def executive_summary_tab(filtered):
         
         if map_fig:
             st.plotly_chart(map_fig, use_container_width=True)
+        else:
+            st.info("Unable to create geographic map with current data selection.")
+    else:
+        st.info("State information not available in current data.")
     
     st.divider()
     
-    # Top 5 Profitability Black Holes radar chart
+    # Top 5 Profitability Black Holes bar chart
     st.subheader("🎯 Top 5 Profitability Black Holes")
     st.markdown("*Products and sub-categories with the biggest cumulative losses*")
     
     blackhole_data = analyze_profitability_blackholes(filtered, top_n=5)
     if not blackhole_data.empty:
-        radar_fig = create_radar_chart(blackhole_data)
-        st.plotly_chart(radar_fig, use_container_width=True)
+        # Create horizontal bar chart
+        import plotly.express as px
+        bar_fig = px.bar(
+            blackhole_data,
+            x='Loss',
+            y='Item',
+            orientation='h',
+            title="Top 5 Loss-Making Items",
+            labels={'Loss': 'Loss Amount ($)', 'Item': 'Product/Category'},
+            text='Loss',
+            color='Loss',
+            color_continuous_scale='Reds_r'
+        )
+        bar_fig.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+        bar_fig.update_layout(
+            yaxis={'categoryorder':'total ascending'},
+            height=400,
+            showlegend=False
+        )
+        st.plotly_chart(bar_fig, use_container_width=True)
         
         # Auto-generated insights
         st.markdown("### 🔍 Key Insights")
@@ -368,23 +389,26 @@ def customer_value_tab(filtered):
     )
     
     cohort_matrix = cohort_data.groupby(['Tier', 'region']).size().reset_index(name='Count')
-    cohort_pivot = cohort_matrix.pivot(index='Tier', columns='region', values='Count').fillna(0)
     
-    if not cohort_pivot.empty:
+    if not cohort_matrix.empty:
         import plotly.express as px
-        fig = px.imshow(
-            cohort_pivot.values,
-            x=cohort_pivot.columns,
-            y=cohort_pivot.index,
-            color_continuous_scale='Blues',
-            title="Customer Tiers by Region Heatmap"
+        fig = px.bar(
+            cohort_matrix,
+            x='region',
+            y='Count',
+            color='Tier',
+            title="Customer Tier Distribution by Region",
+            labels={'Count': 'Number of Customers', 'region': 'Region'},
+            text='Count'
         )
+        fig.update_traces(texttemplate='%{text}', textposition='inside')
         fig.update_layout(
             xaxis_title="Region",
-            yaxis_title="Customer Tier"
+            yaxis_title="Number of Customers",
+            height=400
         )
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown("*Use this heatmap to identify regional customer value patterns*")
+        st.markdown("*Each color represents a different customer tier across regions*")
     
     # RFM insights
     st.markdown("### 🔍 Customer Value Insights")
@@ -394,7 +418,7 @@ def customer_value_tab(filtered):
     
     # Export RFM data
     if st.button("📥 Export RFM Customer Data"):
-        export_data = customer_segments[['Customer.ID', 'R_Score', 'F_Score', 'M_Score', 'Tier']]
+        export_data = customer_segments[['customer_id', 'R_Score', 'F_Score', 'M_Score', 'Tier']]
         csv_data = export_data.to_csv(index=False)
         st.download_button(
             label="Download rfm_customers.csv",
@@ -527,28 +551,31 @@ def operations_crosssell_tab(filtered):
     }).round(2)
     shipping_analysis.columns = ['Avg_Profit', 'Order_Count', 'Avg_Sales']
     
-    # Create shipping heatmap
-    shipping_pivot = shipping_analysis.reset_index().pivot(
-        index='ship_mode', 
-        columns='region', 
-        values='Avg_Profit'
-    )
+    # Create shipping profitability scatter plot instead of heatmap
+    shipping_data = shipping_analysis.reset_index()
     
-    if not shipping_pivot.empty:
+    if not shipping_data.empty:
         import plotly.express as px
-        fig = px.imshow(
-            shipping_pivot.values,
-            x=shipping_pivot.columns,
-            y=shipping_pivot.index,
-            color_continuous_scale='RdYlGn',
-            title="Average Profit by Ship Mode × Region"
+        fig = px.scatter(
+            shipping_data,
+            x='Order_Count',
+            y='Avg_Profit',
+            color='ship_mode',
+            size='Avg_Sales',
+            hover_data=['region'],
+            title="Shipping Profitability Analysis",
+            labels={
+                'Order_Count': 'Number of Orders',
+                'Avg_Profit': 'Average Profit per Order ($)',
+                'ship_mode': 'Shipping Mode'
+            }
         )
         fig.update_layout(
-            xaxis_title="Region",
-            yaxis_title="Shipping Mode"
+            height=400,
+            showlegend=True
         )
         st.plotly_chart(fig, use_container_width=True)
-        st.markdown("*Identify the most profitable shipping mode-region combinations*")
+        st.markdown("*Bubble size represents average sales. Higher and right is better (more profit, more volume)*")
     
     # Market Basket Analysis
     st.subheader("🛒 Market Basket Analysis")
@@ -592,30 +619,21 @@ def operations_crosssell_tab(filtered):
     profitability_matrix = get_segment_profitability_matrix(filtered)
     
     if not profitability_matrix.empty:
-        # Create heatmap for segment profitability
-        matrix_pivot = profitability_matrix.pivot_table(
-            index='segment',
-            columns=['category', 'region'],
-            values='Profit_Margin',
-            aggfunc='mean'
-        ).fillna(0)
-        
-        if not matrix_pivot.empty:
+        # Create sunburst chart for segment profitability instead of heatmap
+        if not profitability_matrix.empty:
             import plotly.express as px
-            fig = px.imshow(
-                matrix_pivot.values,
-                x=[f"{cat}-{reg}" for cat, reg in matrix_pivot.columns],
-                y=matrix_pivot.index,
+            # Create sunburst chart showing hierarchy: Segment -> Category -> Region
+            fig = px.sunburst(
+                profitability_matrix,
+                path=['segment', 'category', 'region'],
+                values='Profit_Margin',
+                color='Profit_Margin',
                 color_continuous_scale='RdYlGn',
-                title="Profit Margin % by Segment × Category × Region"
+                title="Segment Profitability Hierarchy (Segment → Category → Region)"
             )
-            fig.update_layout(
-                xaxis_title="Category - Region",
-                yaxis_title="Customer Segment",
-                xaxis=dict(tickangle=45)
-            )
+            fig.update_layout(height=500)
             st.plotly_chart(fig, use_container_width=True)
-            st.markdown("*Identify the most profitable segment-category-region combinations*")
+            st.markdown("*Each segment shows profitability breakdown by category and region. Green = profitable, Red = losses*")
     
     # Optional ML Profitability Prediction
     st.subheader("🤖 ML-Powered Profitability Prediction")
