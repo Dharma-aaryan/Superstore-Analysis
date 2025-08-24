@@ -1,0 +1,141 @@
+Create a Streamlit Superstore Insights Dashboard in Python that delivers executive-ready, business-first analytics. Use the following exact specifications:
+
+📂 Data Handling
+
+File uploader for CSV with fallback to superstore.csv.
+
+Parse Order Date as datetime, coerce numeric columns, trim whitespace.
+
+Cache heavy ops with @st.cache_data (aggregations, RFM, Apriori) and @st.cache_resource (ML models).
+
+Add global sidebar filters (Date range, Category, Region) that persist across all tabs.
+
+Empty state handling: if filters return no data, show a friendly message (“No results — try relaxing filters”).
+
+🧭 Navigation Tabs
+
+Executive Summary
+
+6 KPI cards: Total Sales, Total Profit, Profit Margin %, Orders, Avg Discount, Customers.
+
+“Top 5 Profitability Black Holes” radar chart (products/sub-categories with biggest cumulative losses).
+
+One-liner explainer under title.
+
+Profitability Black Holes
+
+Loss driver analysis: products or sub-categories with high sales but negative profit.
+
+Pareto chart (20% of items driving 80% of losses).
+
+Drill filters: Category, Region, Discount band (0–10, 10–20, 20–30, 30%+).
+
+Auto-generated insight bullets (e.g., “Texas + Chairs with >30% discount = –$42k profit”).
+
+Customer Value (RFM Segmentation)
+
+RFM scoring (1–5 for Recency, Frequency, Monetary).
+
+Segment customers into named tiers: VIP, Loyal, Promising, At-Risk.
+
+Show revenue/profit share by tier.
+
+Cohort heatmap: RFM tier × Region or Category.
+
+Downloadable rfm_customers.csv.
+
+Discount Elasticity & Pricing
+
+Elasticity explorer: scatter plots Discount vs Profit/Order and Discount vs Sales/Order.
+
+Use discount binning (0–10–20–30–40%+) with median profit/sales calculations (faster than per-row LOWESS).
+
+Regression fit or piecewise trend lines.
+
+What-if simulation: slider to cap discounts at X% → recompute simulated total profit.
+
+Export elasticity_summary.csv.
+
+Operations & Cross-Sell
+
+Shipping efficiency: compare profit by Ship Mode × Region.
+
+Market Basket Analysis: Apriori + association rules (min_support=0.02, max_len=2; configurable in Advanced). Show top rules by lift with support/confidence.
+
+Segment Profitability Matrix: Segment × Category × Region heatmap with Profit%.
+
+Optional ML: Logistic Regression / Random Forest classifier to predict Order Profitability (Profit>0). Show Accuracy/PR-AUC + drivers.
+
+If SHAP unavailable → fallback to Permutation Importance (limit top 25 features, n_repeats=5).
+
+Export basket_rules.csv and profitability_predictions.csv.
+
+🌎 Optional Choropleth
+
+Add a toggle for state-level choropleth (Plotly) with Profit and Profit Margin %.
+
+Hover tooltip shows Sales and Avg Discount.
+
+📤 Exports
+
+loss_blackholes.csv (loss-making items by product/sub-category/state).
+
+rfm_customers.csv (Customer ID, R, F, M, Tier).
+
+elasticity_summary.csv (sub-category elasticity bands).
+
+basket_rules.csv (association rules with support, confidence, lift).
+
+profitability_predictions.csv (optional order-level profitability predictions).
+
+🛠️ UX & Copy
+
+Plain English labels (“High-loss items”, “Discount sweet spot”).
+
+Helper text under each chart (“Use this to…”).
+
+Keep advanced controls (min_support, model toggles, etc.) inside Advanced expander.
+
+Auto-generate 2–3 insight bullets per tab.
+
+📊 Performance Requirements
+
+Each tab loads within 2–3 seconds for 10k+ rows.
+
+Caching ensures smooth navigation between tabs.
+
+Graceful degradation: if SHAP missing, fallback to permutation importance with clear message.
+
+All exports reflect current filters.
+
+📁 Code Structure
+
+app.py → main entry + tab navigation.
+
+utils/data.py → data loading, cleaning, global filters.
+
+utils/profit.py → loss driver & Pareto functions.
+
+utils/rfm.py → RFM scoring & tiering.
+
+utils/elasticity.py → discount binning, regression, what-if simulation.
+
+utils/basket.py → basketization, Apriori, rules.
+
+utils/model.py → profitability prediction & importance.
+
+utils/viz.py → Plotly charts & heatmaps.
+
+📦 requirements.txt
+streamlit
+pandas
+numpy
+scipy
+scikit-learn
+plotly
+matplotlib
+mlxtend
+shap
+
+
+✅ Acceptance: App boots with superstore.csv if no upload. All 5 tabs render with insights. Exports work. SHAP missing? fallback works.
