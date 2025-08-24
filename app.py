@@ -25,27 +25,24 @@ st.set_page_config(
 )
 
 def main():
-    st.title("📊 Superstore Insights Dashboard")
+    st.title("Superstore Insights Dashboard")
     st.markdown("*Executive-ready business analytics for data-driven decision making*")
     
-    # File uploader with fallback
-    uploaded_file = st.file_uploader("Upload CSV file", type=['csv'], help="Upload your superstore data or use the default dataset")
-    
-    # Load and clean data
+    # Load preloaded dataset
     try:
-        df = load_superstore(uploaded_file)
+        df = load_superstore(None)  # Always use default dataset
         if df is None or df.empty:
-            st.error("No data available. Please upload a valid CSV file.")
+            st.error("No data available. Please check the default dataset.")
             return
             
-        st.success(f"✅ Data loaded successfully: {len(df):,} records")
+        st.success(f"Data loaded successfully: {len(df):,} records")
         
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return
     
     # Global filters in sidebar
-    st.sidebar.header("🎛️ Global Filters")
+    st.sidebar.header("Global Filters")
     filter_values = get_filter_values(df)
     
     # Category filter
@@ -67,15 +64,15 @@ def main():
     # Apply global filters
     filtered_df = apply_global_filters(df, categories, regions)
     
-    st.sidebar.success(f"📊 {len(filtered_df):,} records match filters")
+    st.sidebar.success(f"{len(filtered_df):,} records match filters")
     
     # Navigation tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 Executive Summary", 
-        "🕳️ Profitability Black Holes", 
-        "👥 Customer Value (RFM)",
-        "💰 Discount Elasticity & Pricing", 
-        "🔄 Operations & Cross-Sell"
+        "Executive Summary", 
+        "Profitability Black Holes", 
+        "Customer Value (RFM)",
+        "Discount Elasticity & Pricing", 
+        "Operations & Cross-Sell"
     ])
     
     with tab1:
@@ -97,7 +94,7 @@ def executive_summary_tab(filtered):
     """Executive Summary tab with KPIs and radar chart"""
     guard_empty(filtered)
     
-    st.header("📈 Executive Summary")
+    st.header("Executive Summary")
     st.markdown("*High-level business performance metrics and key profitability concerns*")
     
     # KPI Cards
@@ -119,7 +116,9 @@ def executive_summary_tab(filtered):
     st.divider()
     
     # Geographic Performance Map - Always shown
-    st.subheader("🗺️ Geographic Performance")
+    st.subheader("Geographic Performance")
+    st.markdown("*Profit by State: Total profit generated from all orders in each state*")
+    st.markdown("*Profit Margin by State: Average profit margin (profit/sales ratio) for each state*")
     
     # Map options
     col1, col2 = st.columns(2)
@@ -128,12 +127,16 @@ def executive_summary_tab(filtered):
     
     if 'state' in filtered.columns:
         if map_metric == "Profit":
-            map_fig = plot_state_map(filtered, value_col='profit', title='Profit by State')
+            map_fig = plot_state_map(filtered, value_col='profit', title='Total Profit by State')
         else:
-            # Create profit margin column
+            # Create profit margin column - handle division by zero
             filtered_copy = filtered.copy()
-            filtered_copy['profit_margin'] = filtered_copy['profit'] / filtered_copy['sales'].replace(0, pd.NA)
-            map_fig = plot_state_map(filtered_copy, value_col='profit_margin', title='Profit Margin by State')
+            filtered_copy['profit_margin'] = np.where(
+                filtered_copy['sales'] > 0,
+                (filtered_copy['profit'] / filtered_copy['sales']) * 100,
+                0
+            )
+            map_fig = plot_state_map(filtered_copy, value_col='profit_margin', title='Profit Margin % by State')
         
         if map_fig:
             st.plotly_chart(map_fig, use_container_width=True)
@@ -145,7 +148,7 @@ def executive_summary_tab(filtered):
     st.divider()
     
     # Top 5 Profitability Black Holes bar chart
-    st.subheader("🎯 Top 5 Profitability Black Holes")
+    st.subheader("Top 5 Profitability Black Holes")
     st.markdown("*Products and sub-categories with the biggest cumulative losses*")
     
     blackhole_data = analyze_profitability_blackholes(filtered, top_n=5)
@@ -172,7 +175,7 @@ def executive_summary_tab(filtered):
         st.plotly_chart(bar_fig, use_container_width=True)
         
         # Auto-generated insights
-        st.markdown("### 🔍 Key Insights")
+        st.markdown("### Key Insights")
         total_loss = blackhole_data['Loss'].sum()
         worst_item = blackhole_data.iloc[0]
         
@@ -191,11 +194,11 @@ def profitability_blackholes_tab(filtered):
     """Profitability Black Holes analysis tab"""
     guard_empty(filtered)
     
-    st.header("🕳️ Profitability Black Holes")
+    st.header("Profitability Black Holes")
     st.markdown("*Deep dive into loss drivers and profit optimization opportunities*")
     
-    # Drill filters
-    col1, col2, col3, col4 = st.columns(4)
+    # Simplified filters
+    col1, col2 = st.columns(2)
     
     with col1:
         category_filter = st.selectbox(
@@ -205,48 +208,10 @@ def profitability_blackholes_tab(filtered):
         )
     
     with col2:
-        subcategory_filter = st.selectbox(
-            "Sub-Category Focus",
-            options=['All'] + list(filtered['sub_category'].unique()) if 'sub_category' in filtered.columns else ['All'],
-            help="Focus analysis on specific sub-category"
-        )
-    
-    with col3:
         region_filter = st.selectbox(
             "Region Focus", 
             options=['All'] + list(filtered['region'].unique()) if 'region' in filtered.columns else ['All'],
             help="Focus analysis on specific region"
-        )
-    
-    with col4:
-        segment_filter = st.selectbox(
-            "Customer Segment",
-            options=['All'] + list(filtered['segment'].unique()) if 'segment' in filtered.columns else ['All'],
-            help="Focus analysis on specific customer segment"
-        )
-    
-    # Additional filter row
-    col5, col6, col7 = st.columns(3)
-    
-    with col5:
-        discount_band = st.selectbox(
-            "Discount Band",
-            options=['All', '0-10%', '10-20%', '20-30%', '30%+'],
-            help="Filter by discount level"
-        )
-        
-    with col6:
-        ship_mode_filter = st.selectbox(
-            "Ship Mode",
-            options=['All'] + list(filtered['ship_mode'].unique()) if 'ship_mode' in filtered.columns else ['All'],
-            help="Filter by shipping method"
-        )
-        
-    with col7:
-        profit_threshold = st.selectbox(
-            "Profit Filter",
-            options=['All', 'Loss-making only', 'Profitable only', 'Break-even'],
-            help="Filter by profitability status"
         )
     
     # Apply drill filters
@@ -255,85 +220,84 @@ def profitability_blackholes_tab(filtered):
     if category_filter != 'All' and 'category' in drill_df.columns:
         drill_df = drill_df[drill_df['category'] == category_filter]
         
-    if subcategory_filter != 'All' and 'sub_category' in drill_df.columns:
-        drill_df = drill_df[drill_df['sub_category'] == subcategory_filter]
-        
     if region_filter != 'All' and 'region' in drill_df.columns:
         drill_df = drill_df[drill_df['region'] == region_filter]
-        
-    if segment_filter != 'All' and 'segment' in drill_df.columns:
-        drill_df = drill_df[drill_df['segment'] == segment_filter]
-        
-    if ship_mode_filter != 'All' and 'ship_mode' in drill_df.columns:
-        drill_df = drill_df[drill_df['ship_mode'] == ship_mode_filter]
-        
-    if discount_band != 'All' and 'discount' in drill_df.columns:
-        if discount_band == '0-10%':
-            drill_df = drill_df[drill_df['discount'] <= 0.1]
-        elif discount_band == '10-20%':
-            drill_df = drill_df[(drill_df['discount'] > 0.1) & (drill_df['discount'] <= 0.2)]
-        elif discount_band == '20-30%':
-            drill_df = drill_df[(drill_df['discount'] > 0.2) & (drill_df['discount'] <= 0.3)]
-        elif discount_band == '30%+':
-            drill_df = drill_df[drill_df['discount'] > 0.3]
-            
-    if profit_threshold != 'All' and 'profit' in drill_df.columns:
-        if profit_threshold == 'Loss-making only':
-            drill_df = drill_df[drill_df['profit'] < 0]
-        elif profit_threshold == 'Profitable only':
-            drill_df = drill_df[drill_df['profit'] > 0]
-        elif profit_threshold == 'Break-even':
-            drill_df = drill_df[drill_df['profit'] == 0]
     
     if drill_df.empty:
         st.warning("No data matches the selected drill filters.")
         return
     
-    # Loss driver analysis
-    st.subheader("📊 Loss Driver Analysis")
-    blackholes = analyze_profitability_blackholes(drill_df, top_n=20)
+    # Three main metrics analysis
+    st.subheader("Performance Analysis")
     
-    if not blackholes.empty:
-        # Pareto chart
-        pareto_fig = get_pareto_chart(blackholes)
-        st.plotly_chart(pareto_fig, use_container_width=True)
-        st.markdown("*Use this chart to identify the 20% of items driving 80% of losses*")
+    # Calculate three key metrics
+    metrics_data = drill_df.groupby('sub_category').agg({
+        'profit': ['sum', 'count'],
+        'sales': 'sum',
+        'discount': 'mean'
+    }).reset_index()
+    
+    metrics_data.columns = ['Sub_Category', 'Total_Loss', 'Order_Count', 'Total_Sales', 'Avg_Discount']
+    
+    # Filter for loss-making items only
+    loss_items = metrics_data[metrics_data['Total_Loss'] < 0].copy()
+    loss_items['Loss_Per_Order'] = abs(loss_items['Total_Loss']) / loss_items['Order_Count']
+    loss_items['Loss_Per_Sales_Dollar'] = abs(loss_items['Total_Loss']) / loss_items['Total_Sales']
+    
+    if not loss_items.empty:
+        # Create three separate bar charts for the three metrics
+        col1, col2, col3 = st.columns(3)
         
-        # Loss details table
-        st.subheader("📋 High-Loss Items Details")
-        st.dataframe(
-            blackholes.head(10),
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Auto-generated insights
-        st.markdown("### 🔍 Generated Insights")
-        
-        # Find specific problem combinations  
-        problem_combos = []
-        for _, row in blackholes.head(5).iterrows():
-            item_data = drill_df[
-                (drill_df['product_name'].str.contains(row['Item'].split(' ')[0], na=False)) |
-                (drill_df['sub_category'] == row['Item'])
-            ]
-            if not item_data.empty:
-                avg_discount = item_data['discount'].mean()
-                main_region = item_data['region'].mode().iloc[0] if not item_data['region'].mode().empty else 'Unknown'
-                problem_combos.append(f"• **{main_region} + {row['Item']}** with {avg_discount:.1%} avg discount = **${abs(row['Loss']):,.0f}** loss")
-        
-        for combo in problem_combos[:3]:
-            st.markdown(combo)
-        
-        # Export functionality
-        if st.button("📥 Export Loss Black Holes"):
-            csv_data = blackholes.to_csv(index=False)
-            st.download_button(
-                label="Download loss_blackholes.csv",
-                data=csv_data,
-                file_name="loss_blackholes.csv",
-                mime="text/csv"
+        with col1:
+            st.markdown("**Total Loss Amount**")
+            fig1 = px.bar(
+                loss_items.nlargest(10, 'Total_Loss'),
+                x='Total_Loss',
+                y='Sub_Category',
+                orientation='h',
+                title="Total Loss by Sub-Category"
             )
+            fig1.update_layout(height=300, showlegend=False)
+            st.plotly_chart(fig1, use_container_width=True)
+        
+        with col2:
+            st.markdown("**Loss Per Order**")
+            fig2 = px.bar(
+                loss_items.nlargest(10, 'Loss_Per_Order'),
+                x='Loss_Per_Order',
+                y='Sub_Category',
+                orientation='h',
+                title="Loss Per Order"
+            )
+            fig2.update_layout(height=300, showlegend=False)
+            st.plotly_chart(fig2, use_container_width=True)
+        
+        with col3:
+            st.markdown("**Loss Per Sales Dollar**")
+            fig3 = px.bar(
+                loss_items.nlargest(10, 'Loss_Per_Sales_Dollar'),
+                x='Loss_Per_Sales_Dollar',
+                y='Sub_Category',
+                orientation='h',
+                title="Loss Per Sales Dollar"
+            )
+            fig3.update_layout(height=300, showlegend=False)
+            st.plotly_chart(fig3, use_container_width=True)
+        
+        # Insights
+        st.markdown("### Key Insights")
+        total_loss = loss_items['Total_Loss'].sum()
+        worst_total = loss_items.loc[loss_items['Total_Loss'].idxmin()]
+        worst_per_order = loss_items.loc[loss_items['Loss_Per_Order'].idxmax()]
+        
+        insights = [
+            f"• **${abs(total_loss):,.0f}** total losses across {len(loss_items)} sub-categories",
+            f"• **{worst_total['Sub_Category']}** has highest total loss: **${abs(worst_total['Total_Loss']):,.0f}**",
+            f"• **{worst_per_order['Sub_Category']}** has highest loss per order: **${worst_per_order['Loss_Per_Order']:,.2f}**"
+        ]
+        
+        for insight in insights:
+            st.markdown(insight)
     else:
         st.info("No significant loss drivers found in the selected data.")
 
@@ -341,7 +305,7 @@ def customer_value_tab(filtered):
     """Customer Value RFM segmentation tab"""
     guard_empty(filtered)
     
-    st.header("👥 Customer Value (RFM Segmentation)")
+    st.header("Customer Value (RFM Segmentation)")
     st.markdown("*Segment customers by Recency, Frequency, and Monetary value for targeted strategies*")
     
     # Calculate RFM
@@ -356,7 +320,7 @@ def customer_value_tab(filtered):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🏆 Customer Tier Distribution")
+        st.subheader("Customer Tier Distribution")
         tier_counts = customer_segments['Tier'].value_counts()
         
         for tier in ['VIP', 'Loyal', 'Promising', 'At-Risk']:
@@ -366,7 +330,7 @@ def customer_value_tab(filtered):
                 st.metric(f"{tier} Customers", f"{count:,} ({percentage:.1f}%)")
     
     with col2:
-        st.subheader("💰 Revenue by Tier")
+        st.subheader("Revenue by Tier")
         
         # Calculate revenue and profit by tier
         tier_metrics = customer_segments.groupby('Tier').agg({
@@ -379,8 +343,8 @@ def customer_value_tab(filtered):
             revenue = tier_metrics.loc[tier, 'Total_Revenue']
             st.metric(f"{tier} Revenue", f"${revenue:,.0f}")
     
-    # RFM Cohort Heatmap
-    st.subheader("🗺️ RFM Cohort Analysis")
+    # RFM Cohort Analysis
+    st.subheader("RFM Cohort Analysis")
     
     # Create cohort by Region
     cohort_data = customer_segments.merge(
@@ -411,27 +375,18 @@ def customer_value_tab(filtered):
         st.markdown("*Each color represents a different customer tier across regions*")
     
     # RFM insights
-    st.markdown("### 🔍 Customer Value Insights")
+    st.markdown("### Customer Value Insights")
     insights = get_rfm_insights(customer_segments)
     for insight in insights:
         st.markdown(f"• {insight}")
     
-    # Export RFM data
-    if st.button("📥 Export RFM Customer Data"):
-        export_data = customer_segments[['customer_id', 'R_Score', 'F_Score', 'M_Score', 'Tier']]
-        csv_data = export_data.to_csv(index=False)
-        st.download_button(
-            label="Download rfm_customers.csv",
-            data=csv_data,
-            file_name="rfm_customers.csv",
-            mime="text/csv"
-        )
+    # Removed export functionality
 
 def discount_elasticity_tab(filtered):
     """Discount elasticity and pricing analysis tab"""
     guard_empty(filtered)
     
-    st.header("💰 Discount Elasticity & Pricing")
+    st.header("Discount Elasticity & Pricing")
     st.markdown("*Analyze the relationship between discounts and profitability to optimize pricing strategies*")
     
     # Elasticity analysis
@@ -445,46 +400,42 @@ def discount_elasticity_tab(filtered):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("💹 Discount vs Profit per Order")
+        st.subheader("Discount vs Profit per Order")
         import plotly.express as px
         
-        profit_fig = px.scatter(
+        profit_fig = px.bar(
             elasticity_data,
             x='Discount_Band_Mid',
             y='Median_Profit_Per_Order',
-            size='Order_Count',
-            title="Profit Elasticity by Discount Band",
+            title="Profit by Discount Band",
             labels={
                 'Discount_Band_Mid': 'Discount Rate',
                 'Median_Profit_Per_Order': 'Median Profit per Order ($)'
             }
         )
-        profit_fig.update_traces(marker=dict(color='red', opacity=0.7))
         profit_fig.update_layout(showlegend=False)
         st.plotly_chart(profit_fig, use_container_width=True)
         st.markdown("*Identify the discount sweet spot for maximum profitability*")
     
     with col2:
-        st.subheader("📊 Discount vs Sales per Order")
+        st.subheader("Discount vs Sales per Order")
         
-        sales_fig = px.scatter(
+        sales_fig = px.bar(
             elasticity_data,
             x='Discount_Band_Mid',
             y='Median_Sales_Per_Order',
-            size='Order_Count',
             title="Sales Volume by Discount Band",
             labels={
                 'Discount_Band_Mid': 'Discount Rate',
                 'Median_Sales_Per_Order': 'Median Sales per Order ($)'
             }
         )
-        sales_fig.update_traces(marker=dict(color='blue', opacity=0.7))
         sales_fig.update_layout(showlegend=False)
         st.plotly_chart(sales_fig, use_container_width=True)
         st.markdown("*Track how discounts drive sales volume*")
     
     # What-if simulation
-    st.subheader("🎯 What-If Discount Simulation")
+    st.subheader("What-If Discount Simulation")
     st.markdown("*Simulate the impact of capping discounts at different levels*")
     
     max_discount = st.slider(
@@ -509,7 +460,7 @@ def discount_elasticity_tab(filtered):
         st.metric("Profit Impact", f"${impact:,.0f}", delta=f"{impact:,.0f}")
     
     # Elasticity insights
-    st.markdown("### 🔍 Pricing Insights")
+    st.markdown("### Pricing Insights")
     
     # Find optimal discount range
     optimal_discount = elasticity_data.loc[elasticity_data['Median_Profit_Per_Order'].idxmax()]
@@ -524,25 +475,17 @@ def discount_elasticity_tab(filtered):
     for insight in insights:
         st.markdown(insight)
     
-    # Export elasticity data
-    if st.button("📥 Export Elasticity Analysis"):
-        csv_data = elasticity_data.to_csv(index=False)
-        st.download_button(
-            label="Download elasticity_summary.csv",
-            data=csv_data,
-            file_name="elasticity_summary.csv",
-            mime="text/csv"
-        )
+    # Removed export functionality
 
 def operations_crosssell_tab(filtered):
     """Operations and cross-sell analysis tab"""
     guard_empty(filtered)
     
-    st.header("🔄 Operations & Cross-Sell")
+    st.header("Operations & Cross-Sell")
     st.markdown("*Operational efficiency analysis and cross-selling opportunities*")
     
     # Shipping efficiency analysis
-    st.subheader("🚚 Shipping Efficiency Analysis")
+    st.subheader("Shipping Efficiency Analysis")
     
     shipping_analysis = filtered.groupby(['ship_mode', 'region']).agg({
         'profit': 'mean',
@@ -578,9 +521,10 @@ def operations_crosssell_tab(filtered):
         st.markdown("*Bubble size represents average sales. Higher and right is better (more profit, more volume)*")
     
     # Market Basket Analysis
-    st.subheader("🛒 Market Basket Analysis")
+    st.subheader("Market Basket Analysis")
+    st.markdown("*Market basket analysis reveals which products are frequently bought together. This helps identify cross-selling opportunities and optimal product placement strategies.*")
     
-    with st.expander("⚙️ Advanced Settings"):
+    with st.expander("Advanced Settings"):
         min_support = st.slider("Minimum Support", 0.01, 0.05, 0.02, 0.01)
         max_len = st.slider("Maximum Rule Length", 2, 5, 2)
     
@@ -588,7 +532,7 @@ def operations_crosssell_tab(filtered):
         basket_rules = perform_market_basket_analysis(filtered, min_support=min_support, max_len=max_len)
         
         if not basket_rules.empty:
-            st.markdown("#### 🎯 Top Association Rules by Lift")
+            st.markdown("#### Top Association Rules by Lift")
             
             # Display top rules
             top_rules = basket_rules.nlargest(10, 'lift')[
@@ -598,15 +542,22 @@ def operations_crosssell_tab(filtered):
             st.dataframe(top_rules, use_container_width=True, hide_index=True)
             st.markdown("*Higher lift values indicate stronger associations between products*")
             
-            # Export basket rules
-            if st.button("📥 Export Basket Rules"):
-                csv_data = basket_rules.to_csv(index=False)
-                st.download_button(
-                    label="Download basket_rules.csv",
-                    data=csv_data,
-                    file_name="basket_rules.csv",
-                    mime="text/csv"
+            # Create visualization for market basket rules
+            if len(basket_rules) >= 5:
+                top_5_rules = basket_rules.nlargest(5, 'lift')
+                rule_labels = [f"{list(rule['antecedents'])[0]} → {list(rule['consequents'])[0]}" for _, rule in top_5_rules.iterrows()]
+                
+                import plotly.express as px
+                fig = px.bar(
+                    x=top_5_rules['lift'].values,
+                    y=rule_labels,
+                    orientation='h',
+                    title="Top 5 Product Association Rules",
+                    labels={'x': 'Lift Score', 'y': 'Product Association Rule'}
                 )
+                fig.update_layout(height=300, showlegend=False)
+                st.plotly_chart(fig, use_container_width=True)
+                st.markdown("*Lift > 1 indicates products are bought together more often than by chance*")
         else:
             st.info(f"No association rules found with minimum support of {min_support}. Try lowering the support threshold.")
     
@@ -614,95 +565,31 @@ def operations_crosssell_tab(filtered):
         st.warning(f"Market basket analysis failed: {str(e)}. This may be due to insufficient data or missing dependencies.")
     
     # Segment Profitability Matrix
-    st.subheader("📊 Segment Profitability Matrix")
+    st.subheader("Segment Profitability Matrix")
     
     profitability_matrix = get_segment_profitability_matrix(filtered)
     
     if not profitability_matrix.empty:
-        # Create sunburst chart for segment profitability instead of heatmap
+        # Create bar chart for segment profitability
         if not profitability_matrix.empty:
             import plotly.express as px
-            # Create sunburst chart showing hierarchy: Segment -> Category -> Region
-            fig = px.sunburst(
-                profitability_matrix,
-                path=['segment', 'category', 'region'],
-                values='Profit_Margin',
-                color='Profit_Margin',
-                color_continuous_scale='RdYlGn',
-                title="Segment Profitability Hierarchy (Segment → Category → Region)"
-            )
-            fig.update_layout(height=500)
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("*Each segment shows profitability breakdown by category and region. Green = profitable, Red = losses*")
-    
-    # Optional ML Profitability Prediction
-    st.subheader("🤖 ML-Powered Profitability Prediction")
-    
-    with st.expander("⚙️ ML Model Settings"):
-        enable_ml = st.checkbox("Enable Profitability Prediction", value=False)
-        model_type = st.selectbox("Model Type", ["Random Forest", "Logistic Regression"])
-    
-    if enable_ml:
-        try:
-            with st.spinner("Training profitability prediction model..."):
-                model_results = train_profitability_model(filtered, model_type=model_type.replace(" ", "_").lower())
+            # Create bar chart showing segment profitability
+            segment_profit = profitability_matrix.groupby('segment')['Profit_Margin'].mean().reset_index()
+            segment_profit = segment_profit.sort_values('Profit_Margin', ascending=True)
             
-            if model_results:
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.metric("Model Accuracy", f"{model_results['accuracy']:.3f}")
-                    st.metric("Precision-Recall AUC", f"{model_results['pr_auc']:.3f}")
-                
-                with col2:
-                    st.markdown("#### 🔍 Top Profitability Drivers")
-                    insights = get_model_insights(model_results)
-                    for insight in insights:
-                        st.markdown(f"• {insight}")
-                
-                # Feature importance chart
-                if 'feature_importance' in model_results and not model_results['feature_importance'].empty:
-                    import plotly.express as px
-                    fig = px.bar(
-                        model_results['feature_importance'].head(10),
-                        x='importance',
-                        y='feature',
-                        orientation='h',
-                        title="Top 10 Profitability Drivers"
-                    )
-                    fig.update_layout(yaxis={'categoryorder':'total ascending'})
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                # Export predictions
-                if st.button("📥 Export Profitability Predictions") and 'predictions' in model_results:
-                    csv_data = model_results['predictions'].to_csv(index=False)
-                    st.download_button(
-                        label="Download profitability_predictions.csv",
-                        data=csv_data,
-                        file_name="profitability_predictions.csv",
-                        mime="text/csv"
-                    )
-            else:
-                st.warning("Unable to train profitability model with current data.")
-                
-        except Exception as e:
-            st.warning(f"ML model training failed: {str(e)}. This feature requires additional dependencies.")
+            fig = px.bar(
+                segment_profit,
+                x='Profit_Margin',
+                y='segment',
+                orientation='h',
+                title="Average Profit Margin by Customer Segment",
+                labels={'Profit_Margin': 'Average Profit Margin (%)', 'segment': 'Customer Segment'}
+            )
+            fig.update_layout(height=300, showlegend=False)
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("*Shows which customer segments generate the highest profit margins*")
     
-    # Optional Choropleth Map
-    st.subheader("🗺️ Geographic Profit Analysis")
-    
-    show_map = st.checkbox("Show State-Level Choropleth Map", value=False)
-    
-    if show_map:
-        try:
-            choropleth_fig = plot_state_map(filtered, value_col='profit', title='Profit by State')
-            if choropleth_fig:
-                st.plotly_chart(choropleth_fig, use_container_width=True)
-                st.markdown("*Hover over states to see detailed metrics including sales and average discount*")
-            else:
-                st.info("Unable to create choropleth map with current data.")
-        except Exception as e:
-            st.warning(f"Choropleth map failed to load: {str(e)}")
+    # ML section removed as requested
 
 if __name__ == "__main__":
     main()
