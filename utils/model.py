@@ -18,25 +18,25 @@ def train_profitability_model(df, model_type='random_forest', test_size=0.2, ran
     try:
         # Create target variable: 1 if profit > 0, 0 otherwise
         df_model = df.copy()
-        df_model['Is_Profitable'] = (df_model['Profit'] > 0).astype(int)
+        df_model['Is_Profitable'] = (df_model['profit'] > 0).astype(int)
         
         # Select features for modeling
         feature_columns = [
-            'Sales', 'Discount', 'Quantity', 'Shipping.Cost'
+            'sales', 'discount', 'quantity', 'shipping_cost'
         ]
         
         # Add categorical features if available
         categorical_features = []
-        if 'Category' in df_model.columns:
-            categorical_features.append('Category')
-        if 'Sub.Category' in df_model.columns:
-            categorical_features.append('Sub.Category')
-        if 'Segment' in df_model.columns:
-            categorical_features.append('Segment')
-        if 'Region' in df_model.columns:
-            categorical_features.append('Region')
-        if 'Ship.Mode' in df_model.columns:
-            categorical_features.append('Ship.Mode')
+        if 'category' in df_model.columns:
+            categorical_features.append('category')
+        if 'sub_category' in df_model.columns:
+            categorical_features.append('sub_category')
+        if 'segment' in df_model.columns:
+            categorical_features.append('segment')
+        if 'region' in df_model.columns:
+            categorical_features.append('region')
+        if 'ship_mode' in df_model.columns:
+            categorical_features.append('ship_mode')
         
         # Ensure all feature columns exist
         available_features = [col for col in feature_columns if col in df_model.columns]

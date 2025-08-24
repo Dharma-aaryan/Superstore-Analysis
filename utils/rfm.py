@@ -7,21 +7,21 @@ from operator import attrgetter
 @st.cache_data
 def calculate_rfm(df):
     """Calculate RFM (Recency, Frequency, Monetary) scores for customers"""
-    if df.empty or 'Customer.ID' not in df.columns:
+    if df.empty or 'customer_id' not in df.columns:
         return pd.DataFrame()
     
     try:
         # Set analysis date (latest order date + 1 day)
-        analysis_date = df['Order.Date'].max() + pd.Timedelta(days=1)
+        analysis_date = df['order_date'].max() + pd.Timedelta(days=1)
         
         # Calculate RFM metrics per customer
-        rfm_data = df.groupby('Customer.ID').agg({
-            'Order.Date': lambda x: (analysis_date - x.max()).days,  # Recency
-            'Order.ID': 'nunique',  # Frequency  
-            'Sales': 'sum'  # Monetary
+        rfm_data = df.groupby('customer_id').agg({
+            'order_date': lambda x: (analysis_date - x.max()).days,  # Recency
+            'order_id': 'nunique',  # Frequency  
+            'sales': 'sum'  # Monetary
         }).reset_index()
         
-        rfm_data.columns = ['Customer.ID', 'Recency', 'Frequency', 'Monetary']
+        rfm_data.columns = ['customer_id', 'Recency', 'Frequency', 'Monetary']
         
         # Remove customers with zero or negative monetary value
         rfm_data = rfm_data[rfm_data['Monetary'] > 0]

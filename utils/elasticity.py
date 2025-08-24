@@ -20,7 +20,7 @@ def analyze_discount_elasticity(df):
         discount_labels = ['0-10%', '10-20%', '20-30%', '30-40%', '40%+']
         
         df_copy['Discount_Band'] = pd.cut(
-            df_copy['Discount'],
+            df_copy['discount'],
             bins=discount_bins,
             labels=discount_labels,
             include_lowest=True
@@ -28,10 +28,10 @@ def analyze_discount_elasticity(df):
         
         # Calculate metrics by discount band (using median for performance)
         elasticity_data = df_copy.groupby('Discount_Band').agg({
-            'Sales': ['median', 'sum', 'count'],
-            'Profit': ['median', 'sum'],
-            'Order.ID': 'nunique',
-            'Discount': 'median'
+            'sales': ['median', 'sum', 'count'],
+            'profit': ['median', 'sum'],
+            'order_id': 'nunique',
+            'discount': 'median'
         }).reset_index()
         
         # Flatten column names
@@ -132,7 +132,7 @@ def simulate_profit_impact(df, max_discount_rate):
             sim_df.loc[idx, 'Simulated_Profit'] = new_profit
         
         # For orders not exceeding the cap, keep original profit
-        sim_df.loc[~high_discount_mask, 'Simulated_Profit'] = sim_df.loc[~high_discount_mask, 'Profit']
+        sim_df.loc[~high_discount_mask, 'Simulated_Profit'] = sim_df.loc[~high_discount_mask, 'profit']
         
         simulated_profit = sim_df['Simulated_Profit'].sum()
         
@@ -140,7 +140,7 @@ def simulate_profit_impact(df, max_discount_rate):
             'current_profit': current_profit,
             'simulated_profit': simulated_profit,
             'orders_affected': high_discount_mask.sum(),
-            'avg_current_discount': df[high_discount_mask]['Discount'].mean() if high_discount_mask.sum() > 0 else 0
+            'avg_current_discount': df[high_discount_mask]['discount'].mean() if high_discount_mask.sum() > 0 else 0
         }
         
     except Exception as e:
@@ -155,11 +155,11 @@ def get_optimal_discount_recommendations(df):
     
     try:
         # Analyze by sub-category
-        category_analysis = df.groupby('Sub.Category').agg({
-            'Sales': 'sum',
-            'Profit': 'sum', 
-            'Discount': ['mean', 'std'],
-            'Order.ID': 'nunique'
+        category_analysis = df.groupby('sub_category').agg({
+            'sales': 'sum',
+            'profit': 'sum', 
+            'discount': ['mean', 'std'],
+            'order_id': 'nunique'
         }).reset_index()
         
         # Flatten column names

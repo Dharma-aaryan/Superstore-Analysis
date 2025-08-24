@@ -5,22 +5,22 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 @st.cache_data
-def analyze_profitability_blackholes(df, top_n=20, groupby_level='Product.Name'):
+def analyze_profitability_blackholes(df, top_n=20, groupby_level='product_name'):
     """Analyze profit black holes - high sales but negative profit items"""
     if df.empty:
         return pd.DataFrame()
     
     try:
-        # Group by specified level (Product.Name or Sub.Category)
+        # Group by specified level (product_name or sub_category)
         if groupby_level not in df.columns:
-            groupby_level = 'Sub.Category' if 'Sub.Category' in df.columns else 'Product.Name'
+            groupby_level = 'sub_category' if 'sub_category' in df.columns else 'product_name'
         
         # Calculate aggregated metrics by item
         profit_analysis = df.groupby(groupby_level).agg({
-            'Sales': 'sum',
-            'Profit': 'sum',
-            'Quantity': 'sum',
-            'Order.ID': 'nunique'
+            'sales': 'sum',
+            'profit': 'sum',
+            'quantity': 'sum',
+            'order_id': 'nunique'
         }).reset_index()
         
         profit_analysis.columns = ['Item', 'Total_Sales', 'Total_Profit', 'Total_Quantity', 'Order_Count']

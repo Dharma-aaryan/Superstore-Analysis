@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import sys
 import os
@@ -7,13 +8,13 @@ import os
 # Add utils directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
-from utils.data import load_and_clean_data, apply_global_filters, get_filter_values
+from utils.data import load_superstore, apply_global_filters, get_filter_values, guard_empty
 from utils.profit import analyze_profitability_blackholes, get_pareto_chart
 from utils.rfm import calculate_rfm, segment_customers, get_rfm_insights
 from utils.elasticity import analyze_discount_elasticity, simulate_profit_impact
 from utils.basket import perform_market_basket_analysis, get_segment_profitability_matrix
 from utils.model import train_profitability_model, get_model_insights
-from utils.viz import create_kpi_cards, create_radar_chart, create_choropleth_map
+from utils.viz import create_kpi_cards, create_radar_chart, plot_state_map
 
 # Page configuration
 st.set_page_config(
@@ -32,7 +33,7 @@ def main():
     
     # Load and clean data
     try:
-        df = load_and_clean_data(uploaded_file)
+        df = load_superstore(uploaded_file)
         if df is None or df.empty:
             st.error("No data available. Please upload a valid CSV file.")
             return
@@ -63,13 +64,8 @@ def main():
         help="Select regions to analyze"
     )
     
-    # Apply global filters (without date range)
-    filtered_df = apply_global_filters(df, None, categories, regions)
-    
-    # Check for empty results
-    if filtered_df.empty:
-        st.warning("⚠️ No results found with current filters. Try relaxing your filter criteria.")
-        return
+    # Apply global filters
+    filtered_df = apply_global_filters(df, categories, regions)
     
     st.sidebar.success(f"📊 {len(filtered_df):,} records match filters")
     
@@ -97,13 +93,15 @@ def main():
     with tab5:
         operations_crosssell_tab(filtered_df)
 
-def executive_summary_tab(df):
+def executive_summary_tab(filtered):
     """Executive Summary tab with KPIs and radar chart"""
+    guard_empty(filtered)
+    
     st.header("📈 Executive Summary")
     st.markdown("*High-level business performance metrics and key profitability concerns*")
     
     # KPI Cards
-    kpi_metrics = create_kpi_cards(df)
+    kpi_metrics = create_kpi_cards(filtered)
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -120,11 +118,34 @@ def executive_summary_tab(df):
     
     st.divider()
     
+    # Choropleth map toggle and display
+    show_choropleth = st.toggle("Show choropleth map")
+    if show_choropleth and 'state' in filtered.columns:
+        st.subheader("🗺️ Geographic Performance")
+        
+        # Map options
+        col1, col2 = st.columns(2)
+        with col1:
+            map_metric = st.selectbox("Map Metric", ["Profit", "Profit Margin"], key="exec_map_metric")
+        
+        if map_metric == "Profit":
+            map_fig = plot_state_map(filtered, value_col='profit', title='Profit by State')
+        else:
+            # Create profit margin column
+            filtered_copy = filtered.copy()
+            filtered_copy['profit_margin'] = filtered_copy['profit'] / filtered_copy['sales'].replace(0, pd.NA)
+            map_fig = plot_state_map(filtered_copy, value_col='profit_margin', title='Profit Margin by State')
+        
+        if map_fig:
+            st.plotly_chart(map_fig, use_container_width=True)
+    
+    st.divider()
+    
     # Top 5 Profitability Black Holes radar chart
     st.subheader("🎯 Top 5 Profitability Black Holes")
     st.markdown("*Products and sub-categories with the biggest cumulative losses*")
     
-    blackhole_data = analyze_profitability_blackholes(df, top_n=5)
+    blackhole_data = analyze_profitability_blackholes(filtered, top_n=5)
     if not blackhole_data.empty:
         radar_fig = create_radar_chart(blackhole_data)
         st.plotly_chart(radar_fig, use_container_width=True)
@@ -145,8 +166,10 @@ def executive_summary_tab(df):
     else:
         st.info("No significant profit losses identified in current data selection.")
 
-def profitability_blackholes_tab(filtered_df):
+def profitability_blackholes_tab(filtered):
     """Profitability Black Holes analysis tab"""
+    guard_empty(filtered)
+    
     st.header("🕳️ Profitability Black Holes")
     st.markdown("*Deep dive into loss drivers and profit optimization opportunities*")
     
@@ -156,28 +179,28 @@ def profitability_blackholes_tab(filtered_df):
     with col1:
         category_filter = st.selectbox(
             "Category Focus",
-            options=['All'] + list(filtered_df['Category'].unique()) if 'Category' in filtered_df.columns else ['All'],
+            options=['All'] + list(filtered['category'].unique()) if 'category' in filtered.columns else ['All'],
             help="Focus analysis on specific category"
         )
     
     with col2:
         subcategory_filter = st.selectbox(
             "Sub-Category Focus",
-            options=['All'] + list(filtered_df['Sub.Category'].unique()) if 'Sub.Category' in filtered_df.columns else ['All'],
+            options=['All'] + list(filtered['sub_category'].unique()) if 'sub_category' in filtered.columns else ['All'],
             help="Focus analysis on specific sub-category"
         )
     
     with col3:
         region_filter = st.selectbox(
             "Region Focus", 
-            options=['All'] + list(filtered_df['Region'].unique()) if 'Region' in filtered_df.columns else ['All'],
+            options=['All'] + list(filtered['region'].unique()) if 'region' in filtered.columns else ['All'],
             help="Focus analysis on specific region"
         )
     
     with col4:
         segment_filter = st.selectbox(
             "Customer Segment",
-            options=['All'] + list(filtered_df['Segment'].unique()) if 'Segment' in filtered_df.columns else ['All'],
+            options=['All'] + list(filtered['segment'].unique()) if 'segment' in filtered.columns else ['All'],
             help="Focus analysis on specific customer segment"
         )
     
@@ -194,7 +217,7 @@ def profitability_blackholes_tab(filtered_df):
     with col6:
         ship_mode_filter = st.selectbox(
             "Ship Mode",
-            options=['All'] + list(filtered_df['Ship.Mode'].unique()) if 'Ship.Mode' in filtered_df.columns else ['All'],
+            options=['All'] + list(filtered['ship_mode'].unique()) if 'ship_mode' in filtered.columns else ['All'],
             help="Filter by shipping method"
         )
         
@@ -206,40 +229,40 @@ def profitability_blackholes_tab(filtered_df):
         )
     
     # Apply drill filters
-    drill_df = filtered_df.copy()
+    drill_df = filtered.copy()
     
-    if category_filter != 'All' and 'Category' in drill_df.columns:
-        drill_df = drill_df[drill_df['Category'] == category_filter]
+    if category_filter != 'All' and 'category' in drill_df.columns:
+        drill_df = drill_df[drill_df['category'] == category_filter]
         
-    if subcategory_filter != 'All' and 'Sub.Category' in drill_df.columns:
-        drill_df = drill_df[drill_df['Sub.Category'] == subcategory_filter]
+    if subcategory_filter != 'All' and 'sub_category' in drill_df.columns:
+        drill_df = drill_df[drill_df['sub_category'] == subcategory_filter]
         
-    if region_filter != 'All' and 'Region' in drill_df.columns:
-        drill_df = drill_df[drill_df['Region'] == region_filter]
+    if region_filter != 'All' and 'region' in drill_df.columns:
+        drill_df = drill_df[drill_df['region'] == region_filter]
         
-    if segment_filter != 'All' and 'Segment' in drill_df.columns:
-        drill_df = drill_df[drill_df['Segment'] == segment_filter]
+    if segment_filter != 'All' and 'segment' in drill_df.columns:
+        drill_df = drill_df[drill_df['segment'] == segment_filter]
         
-    if ship_mode_filter != 'All' and 'Ship.Mode' in drill_df.columns:
-        drill_df = drill_df[drill_df['Ship.Mode'] == ship_mode_filter]
+    if ship_mode_filter != 'All' and 'ship_mode' in drill_df.columns:
+        drill_df = drill_df[drill_df['ship_mode'] == ship_mode_filter]
         
-    if discount_band != 'All' and 'Discount' in drill_df.columns:
+    if discount_band != 'All' and 'discount' in drill_df.columns:
         if discount_band == '0-10%':
-            drill_df = drill_df[drill_df['Discount'] <= 0.1]
+            drill_df = drill_df[drill_df['discount'] <= 0.1]
         elif discount_band == '10-20%':
-            drill_df = drill_df[(drill_df['Discount'] > 0.1) & (drill_df['Discount'] <= 0.2)]
+            drill_df = drill_df[(drill_df['discount'] > 0.1) & (drill_df['discount'] <= 0.2)]
         elif discount_band == '20-30%':
-            drill_df = drill_df[(drill_df['Discount'] > 0.2) & (drill_df['Discount'] <= 0.3)]
+            drill_df = drill_df[(drill_df['discount'] > 0.2) & (drill_df['discount'] <= 0.3)]
         elif discount_band == '30%+':
-            drill_df = drill_df[drill_df['Discount'] > 0.3]
+            drill_df = drill_df[drill_df['discount'] > 0.3]
             
-    if profit_threshold != 'All' and 'Profit' in drill_df.columns:
+    if profit_threshold != 'All' and 'profit' in drill_df.columns:
         if profit_threshold == 'Loss-making only':
-            drill_df = drill_df[drill_df['Profit'] < 0]
+            drill_df = drill_df[drill_df['profit'] < 0]
         elif profit_threshold == 'Profitable only':
-            drill_df = drill_df[drill_df['Profit'] > 0]
+            drill_df = drill_df[drill_df['profit'] > 0]
         elif profit_threshold == 'Break-even':
-            drill_df = drill_df[drill_df['Profit'] == 0]
+            drill_df = drill_df[drill_df['profit'] == 0]
     
     if drill_df.empty:
         st.warning("No data matches the selected drill filters.")
@@ -266,16 +289,16 @@ def profitability_blackholes_tab(filtered_df):
         # Auto-generated insights
         st.markdown("### 🔍 Generated Insights")
         
-        # Find specific problem combinations
+        # Find specific problem combinations  
         problem_combos = []
         for _, row in blackholes.head(5).iterrows():
             item_data = drill_df[
-                (drill_df['Product.Name'].str.contains(row['Item'].split(' ')[0], na=False)) |
-                (drill_df['Sub.Category'] == row['Item'])
+                (drill_df['product_name'].str.contains(row['Item'].split(' ')[0], na=False)) |
+                (drill_df['sub_category'] == row['Item'])
             ]
             if not item_data.empty:
-                avg_discount = item_data['Discount'].mean()
-                main_region = item_data['Region'].mode().iloc[0] if not item_data['Region'].mode().empty else 'Unknown'
+                avg_discount = item_data['discount'].mean()
+                main_region = item_data['region'].mode().iloc[0] if not item_data['region'].mode().empty else 'Unknown'
                 problem_combos.append(f"• **{main_region} + {row['Item']}** with {avg_discount:.1%} avg discount = **${abs(row['Loss']):,.0f}** loss")
         
         for combo in problem_combos[:3]:
@@ -293,13 +316,15 @@ def profitability_blackholes_tab(filtered_df):
     else:
         st.info("No significant loss drivers found in the selected data.")
 
-def customer_value_tab(df):
+def customer_value_tab(filtered):
     """Customer Value RFM segmentation tab"""
+    guard_empty(filtered)
+    
     st.header("👥 Customer Value (RFM Segmentation)")
     st.markdown("*Segment customers by Recency, Frequency, and Monetary value for targeted strategies*")
     
     # Calculate RFM
-    rfm_data = calculate_rfm(df)
+    rfm_data = calculate_rfm(filtered)
     customer_segments = segment_customers(rfm_data)
     
     if customer_segments.empty:
@@ -325,7 +350,7 @@ def customer_value_tab(df):
         # Calculate revenue and profit by tier
         tier_metrics = customer_segments.groupby('Tier').agg({
             'Monetary': 'sum',
-            'Customer.ID': 'count'
+            'customer_id': 'count'
         }).round(2)
         tier_metrics.columns = ['Total_Revenue', 'Customer_Count']
         
@@ -338,12 +363,12 @@ def customer_value_tab(df):
     
     # Create cohort by Region
     cohort_data = customer_segments.merge(
-        df[['Customer.ID', 'Region']].drop_duplicates(),
-        on='Customer.ID'
+        filtered[['customer_id', 'region']].drop_duplicates(),
+        on='customer_id'
     )
     
-    cohort_matrix = cohort_data.groupby(['Tier', 'Region']).size().reset_index(name='Count')
-    cohort_pivot = cohort_matrix.pivot(index='Tier', columns='Region', values='Count').fillna(0)
+    cohort_matrix = cohort_data.groupby(['Tier', 'region']).size().reset_index(name='Count')
+    cohort_pivot = cohort_matrix.pivot(index='Tier', columns='region', values='Count').fillna(0)
     
     if not cohort_pivot.empty:
         import plotly.express as px
@@ -378,13 +403,15 @@ def customer_value_tab(df):
             mime="text/csv"
         )
 
-def discount_elasticity_tab(df):
+def discount_elasticity_tab(filtered):
     """Discount elasticity and pricing analysis tab"""
+    guard_empty(filtered)
+    
     st.header("💰 Discount Elasticity & Pricing")
     st.markdown("*Analyze the relationship between discounts and profitability to optimize pricing strategies*")
     
     # Elasticity analysis
-    elasticity_data = analyze_discount_elasticity(df)
+    elasticity_data = analyze_discount_elasticity(filtered)
     
     if elasticity_data.empty:
         st.warning("Unable to perform elasticity analysis with current data.")
@@ -446,7 +473,7 @@ def discount_elasticity_tab(df):
         help="Simulate profit impact if all discounts were capped at this level"
     )
     
-    simulation_result = simulate_profit_impact(df, max_discount)
+    simulation_result = simulate_profit_impact(filtered, max_discount)
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -483,25 +510,27 @@ def discount_elasticity_tab(df):
             mime="text/csv"
         )
 
-def operations_crosssell_tab(df):
+def operations_crosssell_tab(filtered):
     """Operations and cross-sell analysis tab"""
+    guard_empty(filtered)
+    
     st.header("🔄 Operations & Cross-Sell")
     st.markdown("*Operational efficiency analysis and cross-selling opportunities*")
     
     # Shipping efficiency analysis
     st.subheader("🚚 Shipping Efficiency Analysis")
     
-    shipping_analysis = df.groupby(['Ship.Mode', 'Region']).agg({
-        'Profit': 'mean',
-        'Order.ID': 'count',
-        'Sales': 'mean'
+    shipping_analysis = filtered.groupby(['ship_mode', 'region']).agg({
+        'profit': 'mean',
+        'order_id': 'count',
+        'sales': 'mean'
     }).round(2)
     shipping_analysis.columns = ['Avg_Profit', 'Order_Count', 'Avg_Sales']
     
     # Create shipping heatmap
     shipping_pivot = shipping_analysis.reset_index().pivot(
-        index='Ship.Mode', 
-        columns='Region', 
+        index='ship_mode', 
+        columns='region', 
         values='Avg_Profit'
     )
     
@@ -529,7 +558,7 @@ def operations_crosssell_tab(df):
         max_len = st.slider("Maximum Rule Length", 2, 5, 2)
     
     try:
-        basket_rules = perform_market_basket_analysis(df, min_support=min_support, max_len=max_len)
+        basket_rules = perform_market_basket_analysis(filtered, min_support=min_support, max_len=max_len)
         
         if not basket_rules.empty:
             st.markdown("#### 🎯 Top Association Rules by Lift")
@@ -560,13 +589,13 @@ def operations_crosssell_tab(df):
     # Segment Profitability Matrix
     st.subheader("📊 Segment Profitability Matrix")
     
-    profitability_matrix = get_segment_profitability_matrix(df)
+    profitability_matrix = get_segment_profitability_matrix(filtered)
     
     if not profitability_matrix.empty:
         # Create heatmap for segment profitability
         matrix_pivot = profitability_matrix.pivot_table(
-            index='Segment',
-            columns=['Category', 'Region'],
+            index='segment',
+            columns=['category', 'region'],
             values='Profit_Margin',
             aggfunc='mean'
         ).fillna(0)
@@ -598,7 +627,7 @@ def operations_crosssell_tab(df):
     if enable_ml:
         try:
             with st.spinner("Training profitability prediction model..."):
-                model_results = train_profitability_model(df, model_type=model_type.replace(" ", "_").lower())
+                model_results = train_profitability_model(filtered, model_type=model_type.replace(" ", "_").lower())
             
             if model_results:
                 col1, col2 = st.columns(2)
@@ -648,7 +677,7 @@ def operations_crosssell_tab(df):
     
     if show_map:
         try:
-            choropleth_fig = create_choropleth_map(df)
+            choropleth_fig = plot_state_map(filtered, value_col='profit', title='Profit by State')
             if choropleth_fig:
                 st.plotly_chart(choropleth_fig, use_container_width=True)
                 st.markdown("*Hover over states to see detailed metrics including sales and average discount*")

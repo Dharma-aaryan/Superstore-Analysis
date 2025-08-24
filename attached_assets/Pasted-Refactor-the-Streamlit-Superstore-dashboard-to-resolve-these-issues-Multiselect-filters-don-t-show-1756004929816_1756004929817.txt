@@ -1,0 +1,102 @@
+Refactor the Streamlit Superstore dashboard to resolve these issues:
+
+Multiselect filters don’t show all categories/regions
+
+Filters aren’t applied consistently across tabs/visuals
+
+State choropleth map doesn’t reflect filters (and sometimes doesn’t render)
+
+Do exactly this:
+
+Normalize column names & values
+
+Implement a load_superstore() that:
+
+Lowercases headers, replaces non-alphanumerics with _, collapses whitespace.
+
+Aliases common variants to canonical names:
+order_date, sales, profit, customer_id, customer_name, product_name, category, sub_category, region, state, city, discount, quantity, ship_mode, segment, order_id, shipping_cost
+
+Parses order_date to datetime; coerces numerics for sales, profit, discount, quantity, shipping_cost.
+
+Strips whitespace on key categoricals (category, sub_category, region, state, city, segment, ship_mode, product_name, customer_name).
+
+Cache with @st.cache_data.
+
+Global filters (sidebar) that persist and default to “All”
+
+Add two multi-selects: Categories and Regions.
+
+Defaults = all unique values from the loaded dataframe (after normalization/stripping).
+
+Store selections and build a single filtered dataframe via a helper:
+
+def apply_global_filters(df, categories, regions):
+    if not categories or not regions: 
+        return df.iloc[0:0]  # empty safe DF
+    out = df.copy()
+    if 'category' in out: out = out[out['category'].isin(categories)]
+    if 'region' in out:   out = out[out['region'].isin(regions)]
+    return out
+
+
+All tabs and charts must derive from filtered, not the raw df.
+
+Empty state handling
+
+Create guard_empty(df):
+
+def guard_empty(d):
+    if d.empty:
+        st.info("No results — relax filters (Category/Region).")
+        st.stop()
+
+
+Call guard_empty(filtered) at the top of every tab before rendering.
+
+Choropleth map that respects filters
+
+Add a US state full-name → 2-letter mapping dict.
+
+Build a plot_state_map(df, value_col='profit', title='Profit by State') that:
+
+Groups the filtered dataframe by state and aggregates:
+profit=sum, sales=sum, avg_discount=mean.
+
+Maps state to 2-letter state_code; drops rows with unknown codes.
+
+Uses Plotly USA choropleth with locations='state_code', locationmode='USA-states', color=value_col, scope='usa', and hover for sales and avg_discount.
+
+Add a toggle “Show choropleth” and call plot_state_map(filtered, value_col='profit').
+
+For profit margin: create filtered['profit_margin'] = filtered['profit'] / filtered['sales'].replace(0, pd.NA) and call plot_state_map(filtered, value_col='profit_margin', title='Profit Margin by State').
+
+Caching & performance
+
+Use @st.cache_data for all aggregations used by KPIs and charts (e.g., trends, Pareto tables, RFM, elasticity bins, Apriori basketization).
+
+Use @st.cache_resource for any ML models.
+
+Ensure every export (CSV) uses filtered so downloads reflect current filters.
+
+QA hooks
+
+After changes, verify:
+
+Category/Region multiselects show all unique values (no missing due to whitespace).
+
+Changing filters updates KPIs, charts, and the map (all read from filtered).
+
+If a filter results in no rows, the tab shows the “No results — relax filters” message (no exceptions).
+
+Choropleth uses 2-letter state codes and renders without errors.
+
+Implementation notes
+
+Keep existing business logic/tabs; only adjust data loading, filter plumbing, and map rendering.
+
+Do not add a date range filter (per requirement).
+
+Prefer a sidebar form (st.sidebar.form("filters")) if needed to reduce reruns, but it’s optional.
+
+Deliverable: Updated app.py (and, if you split utilities, utils/data.py and utils/viz.py) implementing the above, with all visuals sourcing from the filtered dataframe and a working filter-aware choropleth map.

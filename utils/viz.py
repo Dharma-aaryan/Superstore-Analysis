@@ -5,6 +5,22 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# US state full-name → 2-letter mapping dict
+US_STATE_MAPPING = {
+    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+    'District of Columbia': 'DC'
+}
+
+@st.cache_data
 def create_kpi_cards(df):
     """Calculate KPI metrics for executive summary"""
     if df.empty:
@@ -19,12 +35,12 @@ def create_kpi_cards(df):
     
     try:
         metrics = {
-            'total_sales': df['Sales'].sum(),
-            'total_profit': df['Profit'].sum(),
-            'profit_margin': (df['Profit'].sum() / df['Sales'].sum()) if df['Sales'].sum() > 0 else 0,
-            'total_orders': df['Order.ID'].nunique(),
-            'avg_discount': df['Discount'].mean(),
-            'total_customers': df['Customer.ID'].nunique()
+            'total_sales': df['sales'].sum() if 'sales' in df.columns else 0,
+            'total_profit': df['profit'].sum() if 'profit' in df.columns else 0,
+            'profit_margin': (df['profit'].sum() / df['sales'].sum()) if 'profit' in df.columns and 'sales' in df.columns and df['sales'].sum() > 0 else 0,
+            'total_orders': df['order_id'].nunique() if 'order_id' in df.columns else len(df),
+            'avg_discount': df['discount'].mean() if 'discount' in df.columns else 0,
+            'total_customers': df['customer_id'].nunique() if 'customer_id' in df.columns else 0
         }
         
         return metrics
@@ -94,45 +110,43 @@ def create_radar_chart(blackhole_data):
         st.error(f"Error creating radar chart: {str(e)}")
         return None
 
-def create_choropleth_map(df):
-    """Create US state choropleth map for profit analysis"""
-    if df.empty or 'State' not in df.columns:
+@st.cache_data
+def plot_state_map(df, value_col='profit', title='Profit by State'):
+    """Create US state choropleth map that respects filters"""
+    if df.empty or 'state' not in df.columns:
         return None
     
     try:
-        # Aggregate data by state
-        state_data = df.groupby('State').agg({
-            'Sales': 'sum',
-            'Profit': 'sum',
-            'Discount': 'mean',
-            'Order.ID': 'nunique'
+        # Group the filtered dataframe by state and aggregate
+        state_data = df.groupby('state').agg({
+            'profit': 'sum',
+            'sales': 'sum', 
+            'discount': 'mean'
         }).reset_index()
         
-        # Calculate profit margin
-        state_data['Profit_Margin'] = (state_data['Profit'] / state_data['Sales']) * 100
+        # Map state to 2-letter state_code; drop rows with unknown codes
+        state_data['state_code'] = state_data['state'].map(US_STATE_MAPPING)
+        state_data = state_data.dropna(subset=['state_code'])
+        
+        if state_data.empty:
+            return None
         
         # Create choropleth map
         fig = px.choropleth(
             state_data,
-            locations='State',
-            color='Profit_Margin',
+            locations='state_code',
+            color=value_col,
             hover_data={
-                'Sales': ':$,.0f',
-                'Profit': ':$,.0f', 
-                'Discount': ':.1%',
-                'Order.ID': ':,',
-                'Profit_Margin': ':.1f'
+                'sales': ':$,.0f',
+                'discount': ':.1%'
             },
             locationmode='USA-states',
             color_continuous_scale='RdYlGn',
-            title="Profit Margin % by State",
-            labels={'Profit_Margin': 'Profit Margin %'}
+            scope='usa',
+            title=title
         )
         
-        fig.update_layout(
-            geo_scope="usa",
-            height=600
-        )
+        fig.update_layout(height=600)
         
         return fig
         

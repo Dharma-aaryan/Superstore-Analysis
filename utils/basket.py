@@ -14,7 +14,7 @@ def perform_market_basket_analysis(df, min_support=0.02, max_len=2):
         from mlxtend.preprocessing import TransactionEncoder
         
         # Create transaction dataset (orders with products)
-        transactions = df.groupby('Order.ID')['Product.Name'].apply(list).tolist()
+        transactions = df.groupby('order_id')['product_name'].apply(list).tolist()
         
         # Filter out very long transactions (might be data quality issues)
         transactions = [t for t in transactions if len(t) <= 20]
@@ -88,22 +88,22 @@ def get_segment_profitability_matrix(df):
     
     try:
         # Create profitability matrix by multiple dimensions
-        matrix_data = df.groupby(['Segment', 'Category', 'Region']).agg({
-            'Sales': 'sum',
-            'Profit': 'sum',
-            'Order.ID': 'nunique',
-            'Customer.ID': 'nunique'
+        matrix_data = df.groupby(['segment', 'category', 'region']).agg({
+            'sales': 'sum',
+            'profit': 'sum',
+            'order_id': 'nunique',
+            'customer_id': 'nunique'
         }).reset_index()
         
         # Calculate key metrics
-        matrix_data['Profit_Margin'] = (matrix_data['Profit'] / matrix_data['Sales']) * 100
-        matrix_data['Avg_Order_Value'] = matrix_data['Sales'] / matrix_data['Order.ID']
-        matrix_data['Sales_Per_Customer'] = matrix_data['Sales'] / matrix_data['Customer.ID']
+        matrix_data['Profit_Margin'] = (matrix_data['profit'] / matrix_data['sales']) * 100
+        matrix_data['Avg_Order_Value'] = matrix_data['sales'] / matrix_data['order_id']
+        matrix_data['Sales_Per_Customer'] = matrix_data['sales'] / matrix_data['customer_id']
         
         # Filter for segments with meaningful data
         matrix_data = matrix_data[
-            (matrix_data['Order.ID'] >= 5) & 
-            (matrix_data['Customer.ID'] >= 3)
+            (matrix_data['order_id'] >= 5) & 
+            (matrix_data['customer_id'] >= 3)
         ]
         
         return matrix_data.round(2)
@@ -151,11 +151,11 @@ def analyze_shipping_profitability(df):
     
     try:
         # Shipping analysis
-        shipping_analysis = df.groupby(['Ship.Mode', 'Region']).agg({
-            'Profit': ['sum', 'mean'],
-            'Sales': ['sum', 'mean'],
-            'Shipping.Cost': 'mean',
-            'Order.ID': 'nunique'
+        shipping_analysis = df.groupby(['ship_mode', 'region']).agg({
+            'profit': ['sum', 'mean'],
+            'sales': ['sum', 'mean'],
+            'shipping_cost': 'mean',
+            'order_id': 'nunique'
         }).reset_index()
         
         # Flatten column names
@@ -193,8 +193,8 @@ def get_operational_insights(df):
     
     try:
         # Shipping mode analysis
-        if 'Ship.Mode' in df.columns:
-            shipping_profit = df.groupby('Ship.Mode')['Profit'].mean().sort_values(ascending=False)
+        if 'ship_mode' in df.columns:
+            shipping_profit = df.groupby('ship_mode')['profit'].mean().sort_values(ascending=False)
             best_shipping = shipping_profit.index[0]
             worst_shipping = shipping_profit.index[-1]
             
@@ -204,12 +204,12 @@ def get_operational_insights(df):
             )
         
         # Regional performance
-        if 'Region' in df.columns:
-            region_margins = df.groupby('Region').agg({
-                'Profit': 'sum',
-                'Sales': 'sum'
+        if 'region' in df.columns:
+            region_margins = df.groupby('region').agg({
+                'profit': 'sum',
+                'sales': 'sum'
             })
-            region_margins['Margin'] = (region_margins['Profit'] / region_margins['Sales']) * 100
+            region_margins['Margin'] = (region_margins['profit'] / region_margins['sales']) * 100
             
             best_region = region_margins['Margin'].idxmax()
             best_margin = region_margins.loc[best_region, 'Margin']
@@ -219,8 +219,8 @@ def get_operational_insights(df):
             )
         
         # Category concentration
-        if 'Category' in df.columns:
-            category_revenue = df.groupby('Category')['Sales'].sum()
+        if 'category' in df.columns:
+            category_revenue = df.groupby('category')['sales'].sum()
             total_revenue = category_revenue.sum()
             top_category_share = (category_revenue.max() / total_revenue) * 100
             top_category = category_revenue.idxmax()
@@ -238,22 +238,22 @@ def get_operational_insights(df):
 @st.cache_data  
 def get_customer_segment_behavior(df):
     """Analyze behavior patterns by customer segment"""
-    if df.empty or 'Segment' not in df.columns:
+    if df.empty or 'segment' not in df.columns:
         return pd.DataFrame()
     
     try:
-        segment_behavior = df.groupby('Segment').agg({
-            'Sales': ['sum', 'mean'],
-            'Profit': ['sum', 'mean'],
-            'Discount': 'mean',
-            'Quantity': 'mean',
-            'Order.ID': 'nunique',
-            'Customer.ID': 'nunique'
+        segment_behavior = df.groupby('segment').agg({
+            'sales': ['sum', 'mean'],
+            'profit': ['sum', 'mean'],
+            'discount': 'mean',
+            'quantity': 'mean',
+            'order_id': 'nunique',
+            'customer_id': 'nunique'
         }).reset_index()
         
         # Flatten columns
         segment_behavior.columns = [
-            'Segment', 'Total_Sales', 'Avg_Order_Value', 'Total_Profit',
+            'segment', 'Total_Sales', 'Avg_Order_Value', 'Total_Profit',
             'Avg_Profit_Per_Order', 'Avg_Discount', 'Avg_Quantity', 
             'Total_Orders', 'Total_Customers'
         ]
