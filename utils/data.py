@@ -80,8 +80,8 @@ def apply_global_filters(df, date_range, categories, regions):
     
     filtered_df = df.copy()
     
-    # Date range filter
-    if len(date_range) == 2 and date_range[0] and date_range[1]:
+    # Date range filter (optional)
+    if date_range and len(date_range) == 2 and date_range[0] and date_range[1]:
         start_date = pd.to_datetime(date_range[0])
         end_date = pd.to_datetime(date_range[1])
         filtered_df = filtered_df[

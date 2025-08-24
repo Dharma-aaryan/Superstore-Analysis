@@ -47,17 +47,6 @@ def main():
     st.sidebar.header("🎛️ Global Filters")
     filter_values = get_filter_values(df)
     
-    # Date range filter
-    min_date = df['Order.Date'].min()
-    max_date = df['Order.Date'].max()
-    date_range = st.sidebar.date_input(
-        "Date Range",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date,
-        help="Select date range to filter all analyses"
-    )
-    
     # Category filter
     categories = st.sidebar.multiselect(
         "Categories",
@@ -74,8 +63,8 @@ def main():
         help="Select regions to analyze"
     )
     
-    # Apply global filters
-    filtered_df = apply_global_filters(df, date_range, categories, regions)
+    # Apply global filters (without date range)
+    filtered_df = apply_global_filters(df, None, categories, regions)
     
     # Check for empty results
     if filtered_df.empty:
@@ -156,42 +145,85 @@ def executive_summary_tab(df):
     else:
         st.info("No significant profit losses identified in current data selection.")
 
-def profitability_blackholes_tab(df):
+def profitability_blackholes_tab(filtered_df):
     """Profitability Black Holes analysis tab"""
     st.header("🕳️ Profitability Black Holes")
     st.markdown("*Deep dive into loss drivers and profit optimization opportunities*")
     
     # Drill filters
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         category_filter = st.selectbox(
             "Category Focus",
-            options=['All'] + list(df['Category'].unique()),
+            options=['All'] + list(filtered_df['Category'].unique()) if 'Category' in filtered_df.columns else ['All'],
             help="Focus analysis on specific category"
         )
     
     with col2:
-        region_filter = st.selectbox(
-            "Region Focus", 
-            options=['All'] + list(df['Region'].unique()),
-            help="Focus analysis on specific region"
+        subcategory_filter = st.selectbox(
+            "Sub-Category Focus",
+            options=['All'] + list(filtered_df['Sub.Category'].unique()) if 'Sub.Category' in filtered_df.columns else ['All'],
+            help="Focus analysis on specific sub-category"
         )
     
     with col3:
+        region_filter = st.selectbox(
+            "Region Focus", 
+            options=['All'] + list(filtered_df['Region'].unique()) if 'Region' in filtered_df.columns else ['All'],
+            help="Focus analysis on specific region"
+        )
+    
+    with col4:
+        segment_filter = st.selectbox(
+            "Customer Segment",
+            options=['All'] + list(filtered_df['Segment'].unique()) if 'Segment' in filtered_df.columns else ['All'],
+            help="Focus analysis on specific customer segment"
+        )
+    
+    # Additional filter row
+    col5, col6, col7 = st.columns(3)
+    
+    with col5:
         discount_band = st.selectbox(
             "Discount Band",
             options=['All', '0-10%', '10-20%', '20-30%', '30%+'],
             help="Filter by discount level"
         )
+        
+    with col6:
+        ship_mode_filter = st.selectbox(
+            "Ship Mode",
+            options=['All'] + list(filtered_df['Ship.Mode'].unique()) if 'Ship.Mode' in filtered_df.columns else ['All'],
+            help="Filter by shipping method"
+        )
+        
+    with col7:
+        profit_threshold = st.selectbox(
+            "Profit Filter",
+            options=['All', 'Loss-making only', 'Profitable only', 'Break-even'],
+            help="Filter by profitability status"
+        )
     
     # Apply drill filters
-    drill_df = df.copy()
-    if category_filter != 'All':
+    drill_df = filtered_df.copy()
+    
+    if category_filter != 'All' and 'Category' in drill_df.columns:
         drill_df = drill_df[drill_df['Category'] == category_filter]
-    if region_filter != 'All':
+        
+    if subcategory_filter != 'All' and 'Sub.Category' in drill_df.columns:
+        drill_df = drill_df[drill_df['Sub.Category'] == subcategory_filter]
+        
+    if region_filter != 'All' and 'Region' in drill_df.columns:
         drill_df = drill_df[drill_df['Region'] == region_filter]
-    if discount_band != 'All':
+        
+    if segment_filter != 'All' and 'Segment' in drill_df.columns:
+        drill_df = drill_df[drill_df['Segment'] == segment_filter]
+        
+    if ship_mode_filter != 'All' and 'Ship.Mode' in drill_df.columns:
+        drill_df = drill_df[drill_df['Ship.Mode'] == ship_mode_filter]
+        
+    if discount_band != 'All' and 'Discount' in drill_df.columns:
         if discount_band == '0-10%':
             drill_df = drill_df[drill_df['Discount'] <= 0.1]
         elif discount_band == '10-20%':
@@ -200,6 +232,14 @@ def profitability_blackholes_tab(df):
             drill_df = drill_df[(drill_df['Discount'] > 0.2) & (drill_df['Discount'] <= 0.3)]
         elif discount_band == '30%+':
             drill_df = drill_df[drill_df['Discount'] > 0.3]
+            
+    if profit_threshold != 'All' and 'Profit' in drill_df.columns:
+        if profit_threshold == 'Loss-making only':
+            drill_df = drill_df[drill_df['Profit'] < 0]
+        elif profit_threshold == 'Profitable only':
+            drill_df = drill_df[drill_df['Profit'] > 0]
+        elif profit_threshold == 'Break-even':
+            drill_df = drill_df[drill_df['Profit'] == 0]
     
     if drill_df.empty:
         st.warning("No data matches the selected drill filters.")
