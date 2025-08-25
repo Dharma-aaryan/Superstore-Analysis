@@ -250,6 +250,7 @@ def profitability_blackholes_tab(filtered):
         
         with col1:
             st.markdown("**Total Loss Amount**")
+            import plotly.express as px
             fig1 = px.bar(
                 loss_items.nlargest(10, 'Total_Loss'),
                 x='Total_Loss',
@@ -352,7 +353,7 @@ def customer_value_tab(filtered):
         on='customer_id'
     )
     
-    cohort_matrix = cohort_data.groupby(['Tier', 'region']).size().reset_index(name='Count')
+    cohort_matrix = cohort_data.groupby(['Tier', 'region']).size().reset_index().rename(columns={0: 'Count'})
     
     if not cohort_matrix.empty:
         import plotly.express as px
@@ -448,16 +449,47 @@ def discount_elasticity_tab(filtered):
         help="Simulate profit impact if all discounts were capped at this level"
     )
     
-    simulation_result = simulate_profit_impact(filtered, max_discount)
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Current Total Profit", f"${simulation_result['current_profit']:,.0f}")
-    with col2:
-        st.metric("Simulated Profit", f"${simulation_result['simulated_profit']:,.0f}")
-    with col3:
-        impact = simulation_result['simulated_profit'] - simulation_result['current_profit']
-        st.metric("Profit Impact", f"${impact:,.0f}", delta=f"{impact:,.0f}")
+    try:
+        simulation_result = simulate_profit_impact(filtered, max_discount)
+        
+        if simulation_result and 'current_profit' in simulation_result:
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Current Total Profit", f"${simulation_result['current_profit']:,.0f}")
+            with col2:
+                st.metric("Simulated Profit", f"${simulation_result['simulated_profit']:,.0f}")
+            with col3:
+                impact = simulation_result['simulated_profit'] - simulation_result['current_profit']
+                delta_color = "normal" if impact >= 0 else "inverse"
+                st.metric("Profit Impact", f"${impact:,.0f}", delta=f"{impact:,.0f}")
+            
+            # Additional simulation details
+            if 'orders_affected' in simulation_result and simulation_result['orders_affected'] > 0:
+                st.info(f"**{simulation_result['orders_affected']}** orders would be affected by this discount cap")
+        else:
+            st.error("Unable to run simulation with current data")
+    except Exception as e:
+        st.error(f"Simulation failed: {str(e)}")
+        # Fallback simple calculation
+        try:
+            current_profit = filtered['profit'].sum()
+            high_discount_orders = filtered[filtered['discount'] > max_discount]
+            if not high_discount_orders.empty:
+                potential_savings = high_discount_orders['sales'].sum() * (high_discount_orders['discount'].mean() - max_discount)
+                estimated_new_profit = current_profit + potential_savings
+            else:
+                estimated_new_profit = current_profit
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Current Total Profit", f"${current_profit:,.0f}")
+            with col2:
+                st.metric("Estimated New Profit", f"${estimated_new_profit:,.0f}")
+            with col3:
+                impact = estimated_new_profit - current_profit
+                st.metric("Estimated Impact", f"${impact:,.0f}")
+        except Exception as fallback_error:
+            st.error(f"Unable to perform simulation: {str(fallback_error)}")
     
     # Elasticity insights
     st.markdown("### Pricing Insights")
@@ -465,6 +497,16 @@ def discount_elasticity_tab(filtered):
     # Find optimal discount range
     optimal_discount = elasticity_data.loc[elasticity_data['Median_Profit_Per_Order'].idxmax()]
     high_volume_discount = elasticity_data.loc[elasticity_data['Order_Count'].idxmax()]
+    
+    # Calculate impact for insights
+    try:
+        simulation_for_insights = simulate_profit_impact(filtered, max_discount)
+        if simulation_for_insights and 'current_profit' in simulation_for_insights:
+            impact = simulation_for_insights['simulated_profit'] - simulation_for_insights['current_profit']
+        else:
+            impact = 0
+    except Exception:
+        impact = 0
     
     insights = [
         f"• **Optimal profitability** achieved at **{optimal_discount['Discount_Band']}** discount range",
