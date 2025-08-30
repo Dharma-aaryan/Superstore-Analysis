@@ -564,15 +564,15 @@ def profitability_tab(df):
                 # Enhanced profit visualization with color coding
                 fig = px.bar(
                     profit_data.tail(20),  # Show bottom 20 to highlight issues
-                    x='profit',
-                    y='sub_category',
-                    orientation='h',
+                    x='sub_category',
+                    y='profit',
                     title="Profitability Analysis by Sub-Category",
                     color=profit_data.tail(20)['profit'],
                     color_continuous_scale=[COLORS['profit_negative'], '#ffc107', COLORS['profit_positive']]
                 )
                 fig.update_layout(height=600, showlegend=False)
-                fig.update_xaxes(tickformat='$,.0f')
+                fig.update_yaxes(tickformat='$,.0f')
+                fig.update_xaxes(tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
             else:
                 st.warning("Sub-category data not available")
@@ -994,6 +994,50 @@ def main():
         st.warning(f"Missing critical columns: {', '.join(missing_cols)}. Some features may not work properly.")
     
     st.title("Superstore Insights Dashboard")
+    
+    # Business Terminology and Metrics Guide
+    with st.expander("📊 Business Metrics & Terminology Guide", expanded=False):
+        st.markdown("""
+        ### Key Performance Indicators (KPIs)
+        
+        **GMV (Gross Merchandise Value)**: Total value of all sales transactions before any deductions. Shows overall business volume and market size.
+        
+        **Revenue/Sales**: Actual income received from customers after discounts but before costs. Key indicator of business performance.
+        
+        **Profit Margin**: Percentage of revenue remaining after all costs. Higher margins indicate better operational efficiency.
+        
+        **CAC (Customer Acquisition Cost)**: Average cost to acquire a new customer through marketing and sales efforts. Lower CAC improves profitability.
+        
+        ### Business Strategy Terms
+        
+        **MOAT (Economic Moat)**: Competitive advantages that protect a business from competitors. Can include brand loyalty, cost advantages, or market dominance.
+        
+        **LTV (Lifetime Value)**: Total revenue expected from a customer over their entire relationship with the business. Higher LTV justifies higher CAC.
+        
+        **Churn Rate**: Percentage of customers who stop buying over a specific period. Lower churn indicates better customer retention.
+        
+        **AOV (Average Order Value)**: Average amount spent per transaction. Increasing AOV improves revenue without acquiring new customers.
+        
+        ### Financial Metrics
+        
+        **ROAS (Return on Ad Spend)**: Revenue generated for every dollar spent on advertising. Measures marketing effectiveness.
+        
+        **Gross Margin**: Revenue minus cost of goods sold, expressed as percentage. Shows pricing power and operational efficiency.
+        
+        **Net Margin**: Final profit after all expenses, taxes, and costs. Ultimate measure of business profitability.
+        
+        **EBITDA**: Earnings before interest, taxes, depreciation, and amortization. Shows operational performance without financial structure effects.
+        
+        ### Operational Terms
+        
+        **Inventory Turnover**: How quickly inventory is sold and replaced. Higher turnover indicates efficient inventory management.
+        
+        **Conversion Rate**: Percentage of prospects who become paying customers. Key metric for sales and marketing effectiveness.
+        
+        **Market Share**: Company's portion of total industry sales. Indicates competitive position and growth potential.
+        
+        **Unit Economics**: Profitability metrics for individual products or customers. Essential for scaling business models sustainably.
+        """)
     
     # Create tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
