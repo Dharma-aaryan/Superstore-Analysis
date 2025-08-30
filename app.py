@@ -10,14 +10,15 @@ warnings.filterwarnings('ignore')
 # Page configuration
 st.set_page_config(layout="wide", page_title="Superstore Insights")
 
-# Professional color palette
+# Dark mode professional color palette
 COLORS = {
-    'sales': '#1f77b4',        # Blue for sales
-    'profit_positive': '#2ca02c',  # Green for positive profit
-    'profit_negative': '#d62728',  # Red for losses
-    'neutral': '#7f7f7f',      # Gray for neutral/secondary
-    'accent': '#17becf',       # Teal for highlights
-    'background': '#f9f9f9'    # Light gray background
+    'sales': '#00d4ff',        # Bright blue for sales
+    'profit_positive': '#00ff88',  # Bright green for positive profit
+    'profit_negative': '#ff4b4b',  # Bright red for losses
+    'neutral': '#a0a0a0',      # Light gray for neutral/secondary
+    'accent': '#ff6b6b',       # Coral for highlights
+    'background': '#0e1117',   # Dark background
+    'card_bg': '#262730'       # Card background
 }
 
 @st.cache_data
@@ -262,16 +263,20 @@ def simulate_profit(df, band_table, target_discount):
     }
 
 def create_kpi_card(title, value, description, color):
-    """Create a styled KPI card with professional colors"""
+    """Create a styled KPI card with dark mode colors"""
     card_html = f"""
     <div style="
         background: {color};
         padding: 1.5rem;
         border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         color: white;
         margin-bottom: 1rem;
-        border-left: 4px solid #ffffff;
+        border-left: 4px solid rgba(255,255,255,0.3);
+        min-height: 140px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
     ">
         <div style="margin-bottom: 0.5rem;">
             <h4 style="margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.9);">{title}</h4>
@@ -500,19 +505,22 @@ def sales_analysis_tab(df):
     
     # Aligned sales performance table
     if 'category' in df.columns and 'sub_category' in df.columns:
-        st.subheader("Detailed Sales Performance")
-        st.markdown("*Comprehensive breakdown by category and sub-category*")
+        st.subheader("Top Performing Sub-Categories")
+        st.markdown("*Best performing products by total sales revenue*")
         
+        # Get top 10 sub-categories by sales
         sales_summary = df.groupby(['category', 'sub_category']).agg({
-            'sales': ['sum', 'mean', 'count']
+            'sales': 'sum',
+            'profit': 'sum',
+            'order_id': 'nunique' if 'order_id' in df.columns else 'count'
         }).round(2)
-        sales_summary.columns = ['Total Sales', 'Avg Sale Value', 'Number of Orders']
+        sales_summary.columns = ['Total Sales', 'Total Profit', 'Number of Orders']
         sales_summary = sales_summary.reset_index()
-        sales_summary = sales_summary.sort_values('Total Sales', ascending=False)
+        sales_summary = sales_summary.sort_values('Total Sales', ascending=False).head(10)
         
         # Format the table with better styling
         sales_summary['Total Sales'] = sales_summary['Total Sales'].apply(format_currency)
-        sales_summary['Avg Sale Value'] = sales_summary['Avg Sale Value'].apply(lambda x: f"${x:.2f}")
+        sales_summary['Total Profit'] = sales_summary['Total Profit'].apply(format_currency)
         
         # Display top performers in a highlighted section
         col1, col2 = st.columns([2, 1])
@@ -649,11 +657,12 @@ def profitability_tab(df):
                 'profit_margin': 'Margin (%)'
             })
             
+            # Show only categories with data (remove any blank rows)
+            margin_display_clean = margin_display.dropna()
             st.dataframe(
-                margin_display,
+                margin_display_clean,
                 hide_index=True,
-                use_container_width=True,
-                height=300
+                use_container_width=True
             )
 
 def geography_tab(df):
@@ -674,14 +683,14 @@ def geography_tab(df):
             if not states_data.empty:
                 fig = px.bar(
                     states_data,
-                    x='sales',
-                    y='state',
-                    orientation='h',
+                    x='state',
+                    y='sales',
                     title="Top 10 States by GMV",
                     color_discrete_sequence=[COLORS['accent']]
                 )
                 fig.update_layout(height=450, showlegend=False)
-                fig.update_xaxes(tickformat='$,.0f')
+                fig.update_yaxes(tickformat='$,.0f')
+                fig.update_xaxes(tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
         
         with table_container:
@@ -717,14 +726,14 @@ def geography_tab(df):
             if not cities_data.empty:
                 fig = px.bar(
                     cities_data,
-                    x='sales',
-                    y='city',
-                    orientation='h',
+                    x='city',
+                    y='sales',
                     title="Top 10 Cities by GMV",
                     color_discrete_sequence=[COLORS['profit_positive']]
                 )
                 fig.update_layout(height=450, showlegend=False)
-                fig.update_xaxes(tickformat='$,.0f')
+                fig.update_yaxes(tickformat='$,.0f')
+                fig.update_xaxes(tickangle=45)
                 st.plotly_chart(fig, use_container_width=True)
         
         with table_container:
@@ -982,7 +991,6 @@ def main():
         st.warning(f"Missing critical columns: {', '.join(missing_cols)}. Some features may not work properly.")
     
     st.title("Superstore Insights Dashboard")
-    st.markdown("*Comprehensive Business Analytics for Strategic Decision Making*")
     
     # Create tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
