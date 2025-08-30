@@ -10,6 +10,16 @@ warnings.filterwarnings('ignore')
 # Page configuration
 st.set_page_config(layout="wide", page_title="Superstore Insights")
 
+# Professional color palette
+COLORS = {
+    'sales': '#1f77b4',        # Blue for sales
+    'profit_positive': '#2ca02c',  # Green for positive profit
+    'profit_negative': '#d62728',  # Red for losses
+    'neutral': '#7f7f7f',      # Gray for neutral/secondary
+    'accent': '#17becf',       # Teal for highlights
+    'background': '#f9f9f9'    # Light gray background
+}
+
 @st.cache_data
 def load_data(path="superstore.csv"):
     """Load and return the superstore dataset"""
@@ -251,11 +261,11 @@ def simulate_profit(df, band_table, target_discount):
         'actual_profit': actual_profit
     }
 
-def create_kpi_card(title, value, description, icon):
-    """Create a styled KPI card"""
+def create_kpi_card(title, value, description, color):
+    """Create a styled KPI card with professional colors"""
     card_html = f"""
     <div style="
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: {color};
         padding: 1.5rem;
         border-radius: 10px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -263,12 +273,11 @@ def create_kpi_card(title, value, description, icon):
         margin-bottom: 1rem;
         border-left: 4px solid #ffffff;
     ">
-        <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
-            <span style="font-size: 1.5rem; margin-right: 0.5rem;">{icon}</span>
-            <h4 style="margin: 0; font-size: 0.9rem; color: #e0e7ff;">{title}</h4>
+        <div style="margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; font-size: 0.9rem; color: rgba(255,255,255,0.9);">{title}</h4>
         </div>
         <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">{value}</div>
-        <p style="margin: 0; font-size: 0.8rem; color: #c7d2fe; line-height: 1.3;">{description}</p>
+        <p style="margin: 0; font-size: 0.8rem; color: rgba(255,255,255,0.8); line-height: 1.3;">{description}</p>
     </div>
     """
     return card_html
@@ -302,7 +311,7 @@ def executive_summary_tab(df):
                 "GMV (Gross Merchandise Value)",
                 format_currency(kpis['gmv']),
                 "Total revenue generated from all sales transactions. Measures market size and business scale.",
-                "💰"
+                COLORS['sales']
             ),
             unsafe_allow_html=True
         )
@@ -313,7 +322,7 @@ def executive_summary_tab(df):
                 "Gross Profit",
                 format_currency(kpis['gross_profit']),
                 "Total profit after direct costs. Key indicator of business profitability and operational efficiency.",
-                "📈"
+                COLORS['profit_positive']
             ),
             unsafe_allow_html=True
         )
@@ -324,7 +333,7 @@ def executive_summary_tab(df):
                 "Profit Margin",
                 f"{kpis['margin_pct']:.1f}%",
                 "Profit as percentage of sales. Measures pricing effectiveness and cost management efficiency.",
-                "📊"
+                COLORS['accent']
             ),
             unsafe_allow_html=True
         )
@@ -335,7 +344,7 @@ def executive_summary_tab(df):
                 "Total Orders",
                 f"{kpis['orders']:,}",
                 "Number of unique transactions. Indicates customer engagement and business volume.",
-                "🛒"
+                COLORS['neutral']
             ),
             unsafe_allow_html=True
         )
@@ -356,14 +365,14 @@ def executive_summary_tab(df):
             st.markdown("#### Sales Performance by Category")
             category_data = sales_by_category(df)
             if not category_data.empty:
-                # Enhanced donut chart
+                # Enhanced donut chart with consistent colors
                 fig1 = px.pie(
                     category_data,
                     values='sales',
                     names='category',
                     title="Revenue Distribution Across Categories",
                     hole=0.4,
-                    color_discrete_sequence=px.colors.qualitative.Set3
+                    color_discrete_sequence=[COLORS['sales'], COLORS['accent'], COLORS['neutral'], '#9467bd', '#8c564b']
                 )
                 fig1.update_traces(textposition='inside', textinfo='percent+label')
                 fig1.update_layout(height=400, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2))
@@ -404,7 +413,7 @@ def executive_summary_tab(df):
                     x='order_date',
                     y='sales',
                     title="Sales Growth Trajectory Over Time",
-                    color_discrete_sequence=['#667eea']
+                    color_discrete_sequence=[COLORS['sales']]
                 )
                 fig2.update_layout(height=400, showlegend=False)
                 fig2.update_yaxes(tickformat='$,.0f')
@@ -423,12 +432,12 @@ def executive_summary_tab(df):
                     st.markdown(
                         f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
                         <strong>Latest Month</strong><br>
-                        <span style="font-size: 1.2rem; color: #667eea;">{format_currency(latest_month)}</span>
+                        <span style="font-size: 1.2rem; color: {COLORS['sales']};">{format_currency(latest_month)}</span>
                         </div>""",
                         unsafe_allow_html=True
                     )
                 with col_b:
-                    growth_color = "#28a745" if growth_rate >= 0 else "#dc3545"
+                    growth_color = COLORS['profit_positive'] if growth_rate >= 0 else COLORS['profit_negative']
                     st.markdown(
                         f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
                         <strong>MoM Growth</strong><br>
@@ -459,8 +468,7 @@ def sales_analysis_tab(df):
                     y='category',
                     orientation='h',
                     title="Revenue by Product Category",
-                    color='sales',
-                    color_continuous_scale='Blues'
+                    color_discrete_sequence=[COLORS['sales']]
                 )
                 fig.update_layout(height=400, showlegend=False)
                 fig.update_xaxes(tickformat='$,.0f')
@@ -480,7 +488,7 @@ def sales_analysis_tab(df):
                     y='sales',
                     title="Sales Performance Over Time",
                     markers=True,
-                    color_discrete_sequence=['#667eea']
+                    color_discrete_sequence=[COLORS['sales']]
                 )
                 fig.update_layout(height=400, showlegend=False)
                 fig.update_yaxes(tickformat='$,.0f')
@@ -522,10 +530,10 @@ def sales_analysis_tab(df):
             top_5 = sales_summary.head(5)
             for idx, row in top_5.iterrows():
                 st.markdown(
-                    f"""<div style="background: #f8f9fa; padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid #667eea;">
+                    f"""<div style="background: #f8f9fa; padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid {COLORS['sales']};">
                     <strong>{row['sub_category']}</strong><br>
                     <small>{row['category']}</small><br>
-                    <span style="color: #667eea;">{row['Total Sales']}</span>
+                    <span style="color: {COLORS['sales']};">{row['Total Sales']}</span>
                     </div>""",
                     unsafe_allow_html=True
                 )
@@ -553,7 +561,7 @@ def profitability_tab(df):
                     orientation='h',
                     title="Profitability Analysis by Sub-Category",
                     color=profit_data.tail(20)['profit'],
-                    color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+                    color_continuous_scale=[COLORS['profit_negative'], '#ffc107', COLORS['profit_positive']]
                 )
                 fig.update_layout(height=600, showlegend=False)
                 fig.update_xaxes(tickformat='$,.0f')
@@ -573,9 +581,9 @@ def profitability_tab(df):
                 for idx, row in loss_makers.iterrows():
                     loss_amount = format_currency(abs(row['profit']))
                     st.markdown(
-                        f"""<div style="background: #fff2f2; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        f"""<div style="background: #fff2f2; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_negative']};">
                         <strong style="color: #721c24;">{row['sub_category']}</strong><br>
-                        <span style="color: #dc3545; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
+                        <span style="color: {COLORS['profit_negative']}; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
                         </div>""",
                         unsafe_allow_html=True
                     )
@@ -583,7 +591,7 @@ def profitability_tab(df):
                 # Total loss metric card
                 total_loss = abs(loss_makers['profit'].sum())
                 st.markdown(
-                    f"""<div style="background: #dc3545; color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-top: 1rem;">
+                    f"""<div style="background: {COLORS['profit_negative']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-top: 1rem;">
                     <h4 style="margin: 0; color: white;">Total Loss Impact</h4>
                     <div style="font-size: 1.8rem; font-weight: bold; margin-top: 0.5rem;">{format_currency(total_loss)}</div>
                     <small>From top 5 loss-makers</small>
@@ -622,7 +630,7 @@ def profitability_tab(df):
                 y='profit_margin',
                 title="Profit Margin by Category",
                 color='profit_margin',
-                color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+                color_continuous_scale=[COLORS['profit_negative'], '#ffc107', COLORS['profit_positive']]
             )
             fig.update_layout(height=400, showlegend=False)
             fig.update_yaxes(title="Profit Margin (%)")
@@ -670,8 +678,7 @@ def geography_tab(df):
                     y='state',
                     orientation='h',
                     title="Top 10 States by GMV",
-                    color='sales',
-                    color_continuous_scale='Blues'
+                    color_discrete_sequence=[COLORS['accent']]
                 )
                 fig.update_layout(height=450, showlegend=False)
                 fig.update_xaxes(tickformat='$,.0f')
@@ -687,12 +694,12 @@ def geography_tab(df):
                 for idx, row in states_data.head(5).iterrows():
                     rank = idx + 1
                     st.markdown(
-                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid #0d6efd; display: flex; justify-content: space-between; align-items: center;">
+                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid {COLORS['accent']}; display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <span style="background: #0d6efd; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
+                            <span style="background: {COLORS['accent']}; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
                             <strong>{row['state']}</strong>
                         </div>
-                        <span style="color: #0d6efd; font-weight: bold;">{row['Sales_Formatted']}</span>
+                        <span style="color: {COLORS['accent']}; font-weight: bold;">{row['Sales_Formatted']}</span>
                         </div>""",
                         unsafe_allow_html=True
                     )
@@ -714,8 +721,7 @@ def geography_tab(df):
                     y='city',
                     orientation='h',
                     title="Top 10 Cities by GMV",
-                    color='sales',
-                    color_continuous_scale='Greens'
+                    color_discrete_sequence=[COLORS['profit_positive']]
                 )
                 fig.update_layout(height=450, showlegend=False)
                 fig.update_xaxes(tickformat='$,.0f')
@@ -763,7 +769,7 @@ def operations_tab(df):
                     y='profit',
                     title="Total Profit by Shipping Mode",
                     color='profit',
-                    color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+                    color_continuous_scale=[COLORS['profit_negative'], '#ffc107', COLORS['profit_positive']]
                 )
                 fig.update_layout(height=400, showlegend=False)
                 fig.update_yaxes(tickformat='$,.0f')
@@ -776,7 +782,7 @@ def operations_tab(df):
                 st.markdown("**Shipping Performance**")
                 
                 for idx, row in shipping_data.iterrows():
-                    profit_color = "#28a745" if row['profit'] >= 0 else "#dc3545"
+                    profit_color = COLORS['profit_positive'] if row['profit'] >= 0 else COLORS['profit_negative']
                     profit_formatted = format_currency(abs(row['profit']))
                     profit_sign = "" if row['profit'] >= 0 else "-"
                     
@@ -804,10 +810,10 @@ def operations_tab(df):
         with col1:
             avg_order_size = df['quantity'].mean()
             st.markdown(
-                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
-                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">📦 Average Order Size</div>
+                f"""<div style="background: {COLORS['accent']}; padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: rgba(255,255,255,0.9);">Average Order Size</div>
                 <div style="font-size: 2rem; font-weight: bold;">{avg_order_size:.1f}</div>
-                <div style="font-size: 0.8rem; color: #c7d2fe;">items per order</div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.8);">items per order</div>
                 </div>""",
                 unsafe_allow_html=True
             )
@@ -815,10 +821,10 @@ def operations_tab(df):
         with col2:
             total_items = df['quantity'].sum()
             st.markdown(
-                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
-                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">📊 Total Items Sold</div>
+                f"""<div style="background: {COLORS['neutral']}; padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: rgba(255,255,255,0.9);">Total Items Sold</div>
                 <div style="font-size: 2rem; font-weight: bold;">{total_items:,}</div>
-                <div style="font-size: 0.8rem; color: #c7d2fe;">total units</div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.8);">total units</div>
                 </div>""",
                 unsafe_allow_html=True
             )
@@ -827,10 +833,10 @@ def operations_tab(df):
             unique_customers = df['customer_id'].nunique() if 'customer_id' in df.columns else 0
             avg_orders_per_customer = len(df) / unique_customers if unique_customers > 0 else 0
             st.markdown(
-                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
-                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">👥 Avg Orders per Customer</div>
+                f"""<div style="background: {COLORS['sales']}; padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: rgba(255,255,255,0.9);">Avg Orders per Customer</div>
                 <div style="font-size: 2rem; font-weight: bold;">{avg_orders_per_customer:.1f}</div>
-                <div style="font-size: 0.8rem; color: #c7d2fe;">orders per customer</div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.8);">orders per customer</div>
                 </div>""",
                 unsafe_allow_html=True
             )
@@ -948,9 +954,9 @@ def what_if_calculator_tab(df):
         # Recommendations
         st.subheader("Recommendations")
         if simulation['delta_profit'] >= 0:
-            st.success(f"✅ **Recommended**: {target_discount}% discount policy could improve profitability")
+            st.success(f"**Recommended**: {target_discount}% discount policy could improve profitability")
         else:
-            st.error(f"⚠️ **Caution**: {target_discount}% discount policy may significantly impact profits")
+            st.error(f"**Caution**: {target_discount}% discount policy may significantly impact profits")
             
     else:
         st.warning("Unable to create discount simulation. Discount data may be missing.")
@@ -980,12 +986,12 @@ def main():
     
     # Create tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "📊 Executive Summary",
-        "💰 Sales Analysis", 
-        "📈 Profitability",
-        "🌍 Geography",
-        "🚚 Operations",
-        "🧮 What-If Calculator"
+        "Executive Summary",
+        "Sales Analysis", 
+        "Profitability",
+        "Geography",
+        "Operations",
+        "What-If Calculator"
     ])
     
     with tab1:

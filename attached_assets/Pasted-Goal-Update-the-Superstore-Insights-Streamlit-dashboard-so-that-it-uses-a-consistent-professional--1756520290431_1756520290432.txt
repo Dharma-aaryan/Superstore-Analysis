@@ -1,0 +1,90 @@
+Goal: Update the Superstore Insights Streamlit dashboard so that it uses a consistent, professional color scheme across all charts and KPIs. The palette must be applied globally and reused in Plotly charts and Streamlit theming.
+
+Requirements
+🎨 Color Palette
+
+Sales (Primary): Blue #1f77b4
+
+Profit (Positive): Green #2ca02c
+
+Loss (Negative): Red #d62728
+
+Secondary/Neutral: Gray #7f7f7f
+
+Accent (Highlights): Teal #17becf
+
+Background: Light Gray #f9f9f9
+
+🖼 Streamlit Theming
+
+In .streamlit/config.toml, set:
+
+[theme]
+primaryColor = "#1f77b4"
+backgroundColor = "#f9f9f9"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#000000"
+font = "sans serif"
+
+📊 Plotly Visuals
+
+Apply consistent colors when building charts with Plotly Express:
+
+Sales-based charts → Blue
+
+Profit-based charts → Green
+
+Loss-focused (sub-category, discount impact) → Red
+
+Geography or secondary comparisons → Teal/Gray
+
+Use consistent axis/label formatting: currency as $12.6M, percentages as 11.6%.
+
+Example:
+
+import plotly.express as px
+
+fig = px.bar(df, x="Category", y="Sales", color_discrete_sequence=["#1f77b4"])
+st.plotly_chart(fig, use_container_width=True)
+
+📌 Sections to Apply Colors
+
+KPIs (Top row):
+
+GMV (blue), Profit (green), Margin % (teal), Orders (gray).
+
+Charts:
+
+Sales by Category → Blue
+
+Monthly Sales Trend → Blue line
+
+Profitability (Sub-Category Losses) → Red for negatives, Green for positives
+
+Geography (States/Cities) → Teal
+
+Shipping Mode → Neutral Gray with Profit in Green
+
+What-If Discount Simulator:
+
+Actual Profit (Blue), Scenario Profit (Green if ↑, Red if ↓).
+
+Add a gradient text/narrative: “Healthy zone (green ≤10%) → Loss zone (red >20%).”
+
+📐 Layout
+
+Use wide layout (st.set_page_config(layout="wide"))
+
+Add st.divider() between sections.
+
+Keep spacing neat, headings consistent.
+
+✅ Acceptance Criteria
+
+Dashboard feels modular and clean.
+
+Sales, profit, and loss are always visually distinct.
+
+The What-If section clearly communicates risk/reward using green/red.
+
+No random Plotly default colors — always use the defined palette.
