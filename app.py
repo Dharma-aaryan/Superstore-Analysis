@@ -2,595 +2,491 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import plotly.graph_objects as go
-from datetime import datetime, timedelta
-import os
+from datetime import datetime
+import warnings
+warnings.filterwarnings('ignore')
 
 # Page configuration
-st.set_page_config(
-    page_title="Superstore Insights Dashboard", 
-    page_icon="📊", 
-    layout="wide"
-)
+st.set_page_config(layout="wide", page_title="Superstore Insights")
 
 @st.cache_data
-def load_data():
-    """Load the preloaded superstore dataset"""
+def load_data(path="superstore.csv"):
+    """Load and return the superstore dataset"""
     try:
-        if os.path.exists('superstore.csv'):
-            df = pd.read_csv('superstore.csv')
-        else:
-            st.error("Superstore dataset not found. Please ensure superstore.csv is in the project directory.")
-            return pd.DataFrame()
-        
-        # Normalize column names
-        df.columns = df.columns.str.lower().str.replace(r'[^a-z0-9]+', '_', regex=True).str.strip('_')
-        
-        # Handle common column name variations
-        column_mapping = {
-            'order_date': 'order_date',
-            'orderdate': 'order_date', 
-            'date': 'order_date',
-            'sales': 'sales',
-            'revenue': 'sales',
-            'profit': 'profit',
-            'customer_id': 'customer_id',
-            'customerid': 'customer_id',
-            'customer_name': 'customer_name',
-            'customername': 'customer_name',
-            'product_name': 'product_name',
-            'productname': 'product_name',
-            'category': 'category',
-            'sub_category': 'sub_category',
-            'subcategory': 'sub_category',
-            'region': 'region',
-            'state': 'state',
-            'city': 'city',
-            'discount': 'discount',
-            'quantity': 'quantity',
-            'ship_mode': 'ship_mode',
-            'shipmode': 'ship_mode',
-            'segment': 'segment',
-            'order_id': 'order_id',
-            'orderid': 'order_id'
-        }
-        
-        df = df.rename(columns=column_mapping)
-        
-        # Convert data types
-        if 'order_date' in df.columns:
-            df['order_date'] = pd.to_datetime(df['order_date'], errors='coerce')
-        
-        numeric_cols = ['sales', 'profit', 'discount', 'quantity']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        return df.dropna()
-        
+        return pd.read_csv(path)
+    except FileNotFoundError:
+        st.error(f"Dataset not found at {path}")
+        return pd.DataFrame()
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return pd.DataFrame()
 
 @st.cache_data
-def calculate_rfm(df):
-    """Calculate RFM scores for customer segmentation"""
-    try:
-        if df.empty or 'customer_id' not in df.columns:
-            return pd.DataFrame()
+def normalize_columns(df):
+    """Normalize column names to standard format"""
+    if df.empty:
+        return df
+    
+    # Create a copy to avoid modifying original
+    df = df.copy()
+    
+    # Column mapping for various naming conventions
+    column_mapping = {
+        # Order Date variations
+        'order date': 'order_date',
+        'order.date': 'order_date',
+        'orderdate': 'order_date',
+        'date': 'order_date',
         
-        reference_date = df['order_date'].max() + timedelta(days=1)
+        # Sales variations
+        'sales': 'sales',
+        'revenue': 'sales',
+        'gmv': 'sales',
         
-        rfm = df.groupby('customer_id').agg({
-            'order_date': lambda x: (reference_date - x.max()).days,
-            'order_id': 'nunique',
-            'sales': 'sum'
-        }).round(2)
+        # Profit variations
+        'profit': 'profit',
         
-        rfm.columns = ['Recency', 'Frequency', 'Monetary']
+        # Discount variations
+        'discount': 'discount',
         
-        # Calculate RFM scores (1-5 scale)
-        rfm['R_Score'] = pd.qcut(rfm['Recency'], 5, labels=[5,4,3,2,1])
-        rfm['F_Score'] = pd.qcut(rfm['Frequency'].rank(method='first'), 5, labels=[1,2,3,4,5])
-        rfm['M_Score'] = pd.qcut(rfm['Monetary'], 5, labels=[1,2,3,4,5])
+        # Order ID variations
+        'order id': 'order_id',
+        'order.id': 'order_id',
+        'orderid': 'order_id',
+        'order_id': 'order_id',
         
-        rfm['RFM_Score'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
+        # Customer variations
+        'customer id': 'customer_id',
+        'customer.id': 'customer_id',
+        'customerid': 'customer_id',
+        'customer_id': 'customer_id',
+        'customer name': 'customer_name',
+        'customer.name': 'customer_name',
+        'customername': 'customer_name',
+        'customer_name': 'customer_name',
         
-        return rfm
-    except Exception:
-        return pd.DataFrame()
+        # Category variations
+        'category': 'category',
+        'sub category': 'sub_category',
+        'sub.category': 'sub_category',
+        'subcategory': 'sub_category',
+        'sub_category': 'sub_category',
+        
+        # Geography variations
+        'region': 'region',
+        'state': 'state',
+        'city': 'city',
+        
+        # Shipping variations
+        'ship mode': 'ship_mode',
+        'ship.mode': 'ship_mode',
+        'shipmode': 'ship_mode',
+        'ship_mode': 'ship_mode',
+        
+        # Other variations
+        'segment': 'segment',
+        'quantity': 'quantity'
+    }
+    
+    # Normalize column names: lowercase and clean
+    df.columns = df.columns.str.lower().str.strip()
+    
+    # Apply mapping
+    df = df.rename(columns=column_mapping)
+    
+    # Convert data types
+    if 'order_date' in df.columns:
+        df['order_date'] = pd.to_datetime(df['order_date'], errors='coerce')
+    
+    numeric_cols = ['sales', 'profit', 'discount', 'quantity']
+    for col in numeric_cols:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    return df.dropna(subset=['sales', 'profit'] if all(col in df.columns for col in ['sales', 'profit']) else [])
 
-def segment_customers(rfm_df):
-    """Segment customers based on RFM scores"""
-    if rfm_df.empty:
-        return pd.DataFrame()
+def compute_kpis(df):
+    """Compute executive KPIs"""
+    if df.empty:
+        return {'gmv': 0, 'gross_profit': 0, 'margin_pct': 0, 'orders': 0}
     
-    def assign_segment(row):
-        if row['RFM_Score'] in ['555', '554', '544', '545', '454', '455', '445']:
-            return 'Champions'
-        elif row['RFM_Score'] in ['543', '444', '435', '355', '354', '345', '344', '335']:
-            return 'Loyal'
-        elif row['RFM_Score'] in ['512', '511', '422', '421', '412', '411', '311']:
-            return 'Potential'
-        elif row['RFM_Score'] in ['155', '154', '144', '214', '215', '115', '114']:
-            return 'New'
-        elif row['RFM_Score'] in ['155', '254', '245', '253', '252', '243', '242']:
-            return 'Promising'
-        elif row['RFM_Score'] in ['331', '321', '231', '241', '251']:
-            return 'Need Attention'
-        elif row['RFM_Score'] in ['132', '123', '122', '212', '211']:
-            return 'About to Sleep'
-        elif row['RFM_Score'] in ['121', '131', '141', '151']:
-            return 'At Risk'
-        elif row['RFM_Score'] in ['155', '154', '245', '244', '253', '252']:
-            return 'Cannot Lose Them'
-        elif row['RFM_Score'] in ['332', '322', '231', '241', '251', '233', '232']:
-            return 'Hibernating'
-        else:
-            return 'Lost'
+    gmv = df['sales'].sum() if 'sales' in df.columns else 0
+    gross_profit = df['profit'].sum() if 'profit' in df.columns else 0
+    margin_pct = (gross_profit / gmv * 100) if gmv > 0 else 0
+    orders = df['order_id'].nunique() if 'order_id' in df.columns else len(df)
     
-    rfm_df['Segment'] = rfm_df.apply(assign_segment, axis=1)
-    return rfm_df
+    return {
+        'gmv': gmv,
+        'gross_profit': gross_profit,
+        'margin_pct': margin_pct,
+        'orders': orders
+    }
 
-def main():
-    st.title("Superstore Insights Dashboard")
-    st.markdown("*Executive-ready business analytics for strategic decision making*")
-    
-    # Load data
-    data = load_data()
-    
-    if data.empty:
-        st.error("No data available. Please check the superstore.csv file.")
-        return
-    
-    # Sidebar filters
-    st.sidebar.header("Filters")
-    
-    # Date range filter
-    if 'order_date' in data.columns:
-        min_date = data['order_date'].min().date()
-        max_date = data['order_date'].max().date()
-        date_range = st.sidebar.date_input(
-            "Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
-        
-        if isinstance(date_range, tuple) and len(date_range) == 2:
-            start_date, end_date = date_range
-            data = data[
-                (data['order_date'].dt.date >= start_date) & 
-                (data['order_date'].dt.date <= end_date)
-            ]
-    
-    # Regional filter
-    if 'region' in data.columns:
-        unique_regions = data['region'].dropna().unique()
-        regions = ['All'] + list(unique_regions)
-        selected_region = st.sidebar.selectbox("Region", regions)
-        if selected_region != 'All':
-            data = data[data['region'] == selected_region]
-    
-    # Category filter  
-    if 'category' in data.columns:
-        unique_categories = data['category'].dropna().unique()
-        categories = ['All'] + list(unique_categories)
-        selected_category = st.sidebar.selectbox("Category", categories)
-        if selected_category != 'All':
-            data = data[data['category'] == selected_category]
-    
-    # Main tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Executive Summary", 
-        "Profitability Analysis", 
-        "Customer Segments", 
-        "Discount & Pricing", 
-        "Operations & Cross-sell"
-    ])
-    
-    with tab1:
-        executive_summary_tab(data)
-    
-    with tab2:
-        profitability_analysis_tab(data)
-    
-    with tab3:
-        customer_segments_tab(data)
-    
-    with tab4:
-        discount_pricing_tab(data)
-    
-    with tab5:
-        operations_crosssell_tab(data)
-
-def executive_summary_tab(data):
-    """Executive summary with key KPIs"""
-    if data.empty:
-        st.warning("No data available for the selected filters.")
-        return
-    
-    st.header("Executive Summary")
-    st.markdown("*Key performance indicators and business overview*")
-    
-    # Key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        total_sales = data['sales'].sum()
-        st.metric("Total Sales", f"${total_sales:,.0f}")
-    
-    with col2:
-        total_profit = data['profit'].sum()
-        profit_margin = (total_profit / total_sales * 100) if total_sales > 0 else 0
-        st.metric("Total Profit", f"${total_profit:,.0f}", f"{profit_margin:.1f}% margin")
-    
-    with col3:
-        total_orders = data['order_id'].nunique() if 'order_id' in data.columns else len(data)
-        avg_order_value = total_sales / total_orders if total_orders > 0 else 0
-        st.metric("Total Orders", f"{total_orders:,}", f"${avg_order_value:.0f} avg")
-    
-    with col4:
-        unique_customers = data['customer_id'].nunique() if 'customer_id' in data.columns else 0
-        st.metric("Unique Customers", f"{unique_customers:,}")
-    
-    # Charts
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Sales by Category")
-        if 'category' in data.columns:
-            category_sales = data.groupby('category')['sales'].sum().sort_values(ascending=False)
-            fig = px.bar(
-                x=category_sales.values,
-                y=category_sales.index,
-                orientation='h',
-                title="Sales Performance by Category"
-            )
-            fig.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("Monthly Sales Trend")
-        if 'order_date' in data.columns:
-            monthly_sales = data.groupby(data['order_date'].dt.to_period('M'))['sales'].sum()
-            fig = px.line(
-                x=monthly_sales.index.astype(str),
-                y=monthly_sales.values,
-                title="Sales Trend Over Time"
-            )
-            fig.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
-
-def profitability_analysis_tab(data):
-    """Profitability black holes analysis"""
-    if data.empty:
-        st.warning("No data available for the selected filters.")
-        return
-    
-    st.header("Profitability Analysis")
-    st.markdown("*Identify loss-making segments and improvement opportunities*")
-    
-    # Calculate loss analysis by sub-category
-    if 'sub_category' in data.columns:
-        loss_analysis = data.groupby('sub_category').agg({
-            'profit': 'sum',
-            'sales': 'sum',
-            'order_id': 'nunique' if 'order_id' in data.columns else 'count'
-        }).round(2)
-        
-        loss_analysis.columns = ['Total_Profit', 'Total_Sales', 'Order_Count']
-        loss_analysis = loss_analysis[loss_analysis['Total_Profit'] < 0].copy()
-        
-        if not loss_analysis.empty:
-            loss_analysis['Loss_Per_Order'] = abs(loss_analysis['Total_Profit']) / loss_analysis['Order_Count']
-            loss_analysis['Loss_Per_Sales_Dollar'] = abs(loss_analysis['Total_Profit']) / loss_analysis['Total_Sales']
-            
-            # Three metrics charts
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.subheader("Total Loss Amount")
-                top_loss = loss_analysis.nsmallest(10, 'Total_Profit')
-                fig1 = px.bar(
-                    x=abs(top_loss['Total_Profit']),
-                    y=top_loss.index,
-                    orientation='h',
-                    title="Biggest Loss Categories"
-                )
-                fig1.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig1, use_container_width=True)
-            
-            with col2:
-                st.subheader("Loss Per Order")
-                top_loss_order = loss_analysis.nlargest(10, 'Loss_Per_Order')
-                fig2 = px.bar(
-                    x=top_loss_order['Loss_Per_Order'],
-                    y=top_loss_order.index,
-                    orientation='h',
-                    title="Highest Loss Per Order"
-                )
-                fig2.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig2, use_container_width=True)
-            
-            with col3:
-                st.subheader("Loss Per Sales Dollar")
-                top_loss_sales = loss_analysis.nlargest(10, 'Loss_Per_Sales_Dollar')
-                fig3 = px.bar(
-                    x=top_loss_sales['Loss_Per_Sales_Dollar'],
-                    y=top_loss_sales.index,
-                    orientation='h',
-                    title="Highest Loss Rate"
-                )
-                fig3.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig3, use_container_width=True)
-            
-            # Key insights
-            st.subheader("Key Insights")
-            total_loss = abs(loss_analysis['Total_Profit'].sum())
-            worst_category = loss_analysis.loc[loss_analysis['Total_Profit'].idxmin()]
-            
-            st.markdown(f"• **${total_loss:,.0f}** total losses across {len(loss_analysis)} sub-categories")
-            st.markdown(f"• **{worst_category.name}** has the highest total loss: **${abs(worst_category['Total_Profit']):,.0f}**")
-            st.markdown(f"• Average loss per order across loss-making categories: **${loss_analysis['Loss_Per_Order'].mean():.2f}**")
-        else:
-            st.info("No loss-making sub-categories found in the selected data.")
+def format_currency(value):
+    """Format currency values in compact notation"""
+    if value >= 1_000_000:
+        return f"${value/1_000_000:.2f}M"
+    elif value >= 1_000:
+        return f"${value/1_000:.2f}K"
     else:
-        st.error("Sub-category data not available for analysis.")
+        return f"${value:.2f}"
 
-def customer_segments_tab(data):
-    """Customer segmentation using RFM analysis"""
-    if data.empty:
-        st.warning("No data available for the selected filters.")
-        return
+def sales_by_category(df):
+    """Calculate sales by category, sorted descending"""
+    if 'category' not in df.columns or 'sales' not in df.columns:
+        return pd.DataFrame()
     
-    st.header("Customer Segments (RFM Analysis)")
-    st.markdown("*Customer segmentation based on Recency, Frequency, and Monetary value*")
-    
-    # Calculate RFM
-    rfm_data = calculate_rfm(data)
-    
-    if rfm_data.empty:
-        st.error("Unable to calculate RFM scores. Please check data requirements.")
-        return
-    
-    # Segment customers
-    segmented_data = segment_customers(rfm_data)
-    
-    if segmented_data.empty:
-        st.error("Unable to segment customers.")
-        return
-    
-    # Segment overview
-    segment_summary = segmented_data.groupby('Segment').agg({
-        'Monetary': ['count', 'mean', 'sum']
-    }).round(2)
-    segment_summary.columns = ['Customer_Count', 'Avg_Value', 'Total_Value']
-    segment_summary = segment_summary.reset_index()
-    
-    # Segment distribution chart
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Customer Distribution by Segment")
-        fig1 = px.bar(
-            segment_summary,
-            x='Customer_Count',
-            y='Segment',
-            orientation='h',
-            title="Number of Customers per Segment"
-        )
-        fig1.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        st.subheader("Revenue by Segment")
-        fig2 = px.bar(
-            segment_summary,
-            x='Total_Value',
-            y='Segment',
-            orientation='h',
-            title="Total Revenue per Segment"
-        )
-        fig2.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Segment insights
-    st.subheader("Segment Insights")
-    best_segment = segment_summary.loc[segment_summary['Total_Value'].idxmax()]
-    largest_segment = segment_summary.loc[segment_summary['Customer_Count'].idxmax()]
-    
-    st.markdown(f"• **{best_segment['Segment']}** generates the highest revenue: **${best_segment['Total_Value']:,.0f}**")
-    st.markdown(f"• **{largest_segment['Segment']}** has the most customers: **{largest_segment['Customer_Count']:,}**")
-    st.markdown(f"• Average customer value across all segments: **${segment_summary['Avg_Value'].mean():.0f}**")
+    return df.groupby('category')['sales'].sum().sort_values(ascending=False).reset_index()
 
-def discount_pricing_tab(data):
-    """Discount elasticity and pricing analysis"""
-    if data.empty:
-        st.warning("No data available for the selected filters.")
-        return
+def monthly_sales(df):
+    """Calculate monthly sales trend"""
+    if 'order_date' not in df.columns or 'sales' not in df.columns:
+        return pd.DataFrame()
     
-    st.header("Discount & Pricing Analysis")
-    st.markdown("*Analyze discount effectiveness and pricing strategies*")
+    df_clean = df.dropna(subset=['order_date'])
+    monthly = df_clean.groupby(df_clean['order_date'].dt.to_period('M'))['sales'].sum().reset_index()
+    monthly['order_date'] = monthly['order_date'].astype(str)
+    return monthly
+
+def profit_by_subcategory(df):
+    """Calculate profit by sub-category and identify top loss-makers"""
+    if 'sub_category' not in df.columns or 'profit' not in df.columns:
+        return pd.DataFrame(), pd.DataFrame()
     
-    if 'discount' not in data.columns:
-        st.error("Discount data not available for analysis.")
-        return
+    profit_data = df.groupby('sub_category')['profit'].sum().sort_values().reset_index()
+    loss_makers = profit_data[profit_data['profit'] < 0].head(5)
     
-    # Create discount bands
-    data_copy = data.copy()
-    data_copy['Discount_Band'] = pd.cut(
-        data_copy['discount'], 
-        bins=[0, 0.1, 0.2, 0.3, 0.4, 1.0],
-        labels=['0-10pct', '11-20pct', '21-30pct', '31-40pct', '40pct+'],
+    return profit_data, loss_makers
+
+def top_states(df, n=10):
+    """Get top N states by GMV"""
+    if 'state' not in df.columns or 'sales' not in df.columns:
+        return pd.DataFrame()
+    
+    return df.groupby('state')['sales'].sum().sort_values(ascending=False).head(n).reset_index()
+
+def top_cities(df, n=10):
+    """Get top N cities by GMV"""
+    if 'city' not in df.columns or 'sales' not in df.columns:
+        return pd.DataFrame()
+    
+    return df.groupby('city')['sales'].sum().sort_values(ascending=False).head(n).reset_index()
+
+def ship_mode_profit(df):
+    """Calculate total profit by shipping mode"""
+    if 'ship_mode' not in df.columns or 'profit' not in df.columns:
+        return pd.DataFrame()
+    
+    return df.groupby('ship_mode')['profit'].sum().sort_values(ascending=False).reset_index()
+
+def make_discount_bands(df):
+    """Create discount bands for analysis"""
+    if 'discount' not in df.columns:
+        return df
+    
+    df = df.copy()
+    df['discount_band'] = pd.cut(
+        df['discount'], 
+        bins=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 1.0],
+        labels=['0-10%', '11-20%', '21-30%', '31-40%', '41-50%', '50%+'],
         include_lowest=True
     )
+    return df
+
+def band_profit_table(df_band):
+    """Calculate average profit per order by discount band"""
+    if 'discount_band' not in df_band.columns or 'profit' not in df_band.columns:
+        return pd.DataFrame()
     
-    # Discount analysis
-    discount_analysis = data_copy.groupby('Discount_Band').agg({
+    band_stats = df_band.groupby('discount_band').agg({
         'profit': 'mean',
-        'sales': 'mean',
-        'order_id': 'nunique' if 'order_id' in data_copy.columns else 'count'
+        'order_id': 'nunique' if 'order_id' in df_band.columns else 'count'
     }).round(2)
-    discount_analysis.columns = ['Avg_Profit', 'Avg_Sales', 'Order_Count']
-    discount_analysis = discount_analysis.reset_index()
     
-    # Charts
+    band_stats.columns = ['avg_profit_per_order', 'order_count']
+    return band_stats.reset_index()
+
+def simulate_profit(df, band_table, target_discount):
+    """Simulate profit based on target discount using band-based repricing"""
+    if df.empty or band_table.empty:
+        return {'scenario_profit': 0, 'delta_profit': 0, 'scenario_margin': 0}
+    
+    # Map target discount to nearest band
+    band_mapping = {
+        '0-10%': 0.05,
+        '11-20%': 0.15,
+        '21-30%': 0.25,
+        '31-40%': 0.35,
+        '41-50%': 0.45,
+        '50%+': 0.75
+    }
+    
+    # Find closest band to target
+    target_decimal = target_discount / 100
+    closest_band = min(band_mapping.keys(), 
+                      key=lambda x: abs(band_mapping[x] - target_decimal))
+    
+    # Get average profit per order for the target band
+    target_row = band_table[band_table['discount_band'] == closest_band]
+    if target_row.empty:
+        # Fallback to first available band
+        target_avg_profit = band_table['avg_profit_per_order'].iloc[0]
+    else:
+        target_avg_profit = target_row['avg_profit_per_order'].iloc[0]
+    
+    # Calculate scenario metrics
+    total_orders = df['order_id'].nunique() if 'order_id' in df.columns else len(df)
+    scenario_profit = target_avg_profit * total_orders
+    actual_profit = df['profit'].sum()
+    delta_profit = scenario_profit - actual_profit
+    
+    actual_gmv = df['sales'].sum()
+    scenario_margin = (scenario_profit / actual_gmv * 100) if actual_gmv > 0 else 0
+    
+    return {
+        'scenario_profit': scenario_profit,
+        'delta_profit': delta_profit,
+        'scenario_margin': scenario_margin,
+        'actual_profit': actual_profit
+    }
+
+def main():
+    # Load and process data
+    df_raw = load_data()
+    
+    if df_raw.empty:
+        st.error("Unable to load data. Please ensure superstore.csv exists in the project root.")
+        return
+    
+    df = normalize_columns(df_raw)
+    
+    if df.empty:
+        st.error("No valid data found after processing. Please check the data format.")
+        return
+    
+    # Check for missing critical columns
+    required_cols = ['sales', 'profit']
+    missing_cols = [col for col in required_cols if col not in df.columns]
+    if missing_cols:
+        st.warning(f"Missing critical columns: {', '.join(missing_cols)}. Some features may not work properly.")
+    
+    st.title("Superstore Insights")
+    st.markdown("*Executive Dashboard for Retail Performance Analysis*")
+    
+    # Executive KPIs
+    kpis = compute_kpis(df)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("GMV", format_currency(kpis['gmv']))
+    with col2:
+        st.metric("Gross Profit", format_currency(kpis['gross_profit']))
+    with col3:
+        st.metric("Margin %", f"{kpis['margin_pct']:.1f}%")
+    with col4:
+        st.metric("Orders", f"{kpis['orders']:,}")
+    
+    st.divider()
+    
+    # Sales by Category
+    st.subheader("Sales by Category")
+    st.markdown("*Revenue performance across product categories*")
+    
+    category_data = sales_by_category(df)
+    if not category_data.empty:
+        fig1 = px.bar(
+            category_data,
+            x='sales',
+            y='category',
+            orientation='h',
+            title="Sales by Category (Descending GMV)"
+        )
+        fig1.update_layout(height=400, showlegend=False)
+        fig1.update_xaxes(tickformat='$,.0f')
+        st.plotly_chart(fig1, use_container_width=True)
+    else:
+        st.warning("Category data not available")
+    
+    st.divider()
+    
+    # Monthly Sales Trend
+    st.subheader("Monthly Sales Trend")
+    st.markdown("*Sales performance over time*")
+    
+    monthly_data = monthly_sales(df)
+    if not monthly_data.empty:
+        fig2 = px.line(
+            monthly_data,
+            x='order_date',
+            y='sales',
+            title="Monthly Sales Trend"
+        )
+        fig2.update_layout(height=400, showlegend=False)
+        fig2.update_yaxes(tickformat='$,.0f')
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.warning("Time series data not available")
+    
+    st.divider()
+    
+    # Profitability by Sub-Category
+    st.subheader("Profitability by Sub-Category")
+    st.markdown("*Identify profitable segments and loss-making areas*")
+    
+    profit_data, loss_makers = profit_by_subcategory(df)
+    
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Profit by Discount Band")
-        fig1 = px.bar(
-            discount_analysis,
-            x='Discount_Band',
-            y='Avg_Profit',
-            title="Average Profit by Discount Level"
-        )
-        fig1.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        st.subheader("Order Volume by Discount Band")
-        fig2 = px.bar(
-            discount_analysis,
-            x='Discount_Band',
-            y='Order_Count',
-            title="Order Volume by Discount Level"
-        )
-        fig2.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Discount simulation
-    st.subheader("Discount Impact Simulation")
-    max_discount = st.slider(
-        "Cap discounts at:",
-        min_value=0.0,
-        max_value=0.5,
-        value=0.3,
-        step=0.05,
-        format="%.2f"
-    )
-    
-    # Simple simulation
-    current_profit = data['profit'].sum()
-    high_discount_orders = data[data['discount'] > max_discount]
-    
-    if not high_discount_orders.empty:
-        # Estimate impact of capping discounts
-        potential_savings = high_discount_orders['sales'].sum() * 0.1  # Simple estimate
-        simulated_profit = current_profit + potential_savings
-        orders_affected = len(high_discount_orders)
-    else:
-        simulated_profit = current_profit
-        orders_affected = 0
-    
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Current Profit", f"${current_profit:,.0f}")
-    with col2:
-        st.metric("Simulated Profit", f"${simulated_profit:,.0f}")
-    with col3:
-        impact = simulated_profit - current_profit
-        st.metric("Estimated Impact", f"${impact:,.0f}")
-    
-    if orders_affected > 0:
-        st.info(f"**{orders_affected}** orders would be affected by this discount cap")
-
-def operations_crosssell_tab(data):
-    """Operations and cross-sell analysis"""
-    if data.empty:
-        st.warning("No data available for the selected filters.")
-        return
-    
-    st.header("Operations & Cross-sell")
-    st.markdown("*Operational efficiency and cross-selling opportunities*")
-    
-    # Shipping analysis
-    if 'ship_mode' in data.columns:
-        st.subheader("Shipping Mode Analysis")
-        shipping_analysis = data.groupby('ship_mode').agg({
-            'profit': 'mean',
-            'sales': 'mean',
-            'order_id': 'nunique' if 'order_id' in data.columns else 'count'
-        }).round(2)
-        shipping_analysis.columns = ['Avg_Profit', 'Avg_Sales', 'Order_Count']
-        shipping_analysis = shipping_analysis.reset_index()
-        
-        fig = px.bar(
-            shipping_analysis,
-            x='ship_mode',
-            y='Avg_Profit',
-            title="Average Profit by Shipping Mode"
-        )
-        fig.update_layout(height=400, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Category performance
-    if 'category' in data.columns and 'sub_category' in data.columns:
-        st.subheader("Category Performance")
-        category_performance = data.groupby(['category', 'sub_category']).agg({
-            'sales': 'sum',
-            'profit': 'sum'
-        }).round(2)
-        category_performance = category_performance.reset_index()
-        
-        # Top performing sub-categories
-        top_subcategories = category_performance.nlargest(10, 'sales')
-        
-        fig = px.bar(
-            top_subcategories,
-            x='sales',
-            y='sub_category',
-            color='category',
-            orientation='h',
-            title="Top 10 Sub-Categories by Sales"
-        )
-        fig.update_layout(height=500)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Simple market basket analysis
-    st.subheader("Cross-sell Opportunities")
-    st.markdown("*Categories frequently purchased together*")
-    
-    if 'order_id' in data.columns and 'category' in data.columns:
-        # Find orders with multiple categories
-        order_categories = data.groupby('order_id')['category'].apply(list).reset_index()
-        multi_category_orders = order_categories[order_categories['category'].apply(len) > 1]
-        
-        if not multi_category_orders.empty:
-            # Count category combinations
-            from itertools import combinations
-            category_pairs = []
-            for categories in multi_category_orders['category']:
-                for pair in combinations(set(categories), 2):
-                    category_pairs.append(sorted(pair))
-            
-            if category_pairs:
-                pair_counts = pd.Series(category_pairs).apply(tuple).value_counts().head(10)
-                
-                pair_df = pd.DataFrame({
-                    'Category_Pair': [f"{pair[0]} + {pair[1]}" for pair in pair_counts.index],
-                    'Frequency': list(pair_counts.values)
-                })
-                
-                fig = px.bar(
-                    pair_df,
-                    x='Frequency',
-                    y='Category_Pair',
-                    orientation='h',
-                    title="Most Common Category Combinations"
-                )
-                fig.update_layout(height=400, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
-                
-                st.markdown(f"• **{len(multi_category_orders)}** orders contain multiple categories")
-                st.markdown(f"• **{pair_counts.iloc[0]}** orders contain the most common category combination")
-            else:
-                st.info("No significant category combinations found.")
+        if not profit_data.empty:
+            fig3 = px.bar(
+                profit_data.tail(20),  # Show bottom 20 to highlight loss-makers
+                x='profit',
+                y='sub_category',
+                orientation='h',
+                title="Total Profit by Sub-Category (Ascending)"
+            )
+            fig3.update_layout(height=500, showlegend=False)
+            fig3.update_xaxes(tickformat='$,.0f')
+            st.plotly_chart(fig3, use_container_width=True)
         else:
-            st.info("Most orders contain items from a single category.")
+            st.warning("Sub-category data not available")
+    
+    with col2:
+        st.markdown("**Top 5 Loss-Making Sub-Categories**")
+        if not loss_makers.empty:
+            for idx, row in loss_makers.iterrows():
+                st.markdown(f"• {row['sub_category']}: {format_currency(row['profit'])}")
+        else:
+            st.info("No loss-making sub-categories found")
+    
+    st.divider()
+    
+    # Geography Leaders
+    st.subheader("Geography Leaders")
+    st.markdown("*Top performing states and cities by revenue*")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        states_data = top_states(df)
+        if not states_data.empty:
+            fig4 = px.bar(
+                states_data,
+                x='sales',
+                y='state',
+                orientation='h',
+                title="Top 10 States by GMV"
+            )
+            fig4.update_layout(height=400, showlegend=False)
+            fig4.update_xaxes(tickformat='$,.0f')
+            st.plotly_chart(fig4, use_container_width=True)
+        else:
+            st.warning("State data not available")
+    
+    with col2:
+        cities_data = top_cities(df)
+        if not cities_data.empty:
+            fig5 = px.bar(
+                cities_data,
+                x='sales',
+                y='city',
+                orientation='h',
+                title="Top 10 Cities by GMV"
+            )
+            fig5.update_layout(height=400, showlegend=False)
+            fig5.update_xaxes(tickformat='$,.0f')
+            st.plotly_chart(fig5, use_container_width=True)
+        else:
+            st.warning("City data not available")
+    
+    st.divider()
+    
+    # Shipping Mode Profit
+    st.subheader("Shipping Mode Profit")
+    st.markdown("*Profitability analysis by shipping method*")
+    
+    shipping_data = ship_mode_profit(df)
+    if not shipping_data.empty:
+        fig6 = px.bar(
+            shipping_data,
+            x='ship_mode',
+            y='profit',
+            title="Total Profit by Shipping Mode"
+        )
+        fig6.update_layout(height=400, showlegend=False)
+        fig6.update_yaxes(tickformat='$,.0f')
+        st.plotly_chart(fig6, use_container_width=True)
     else:
-        st.info("Order and category data required for cross-sell analysis.")
+        st.warning("Shipping mode data not available")
+    
+    st.divider()
+    
+    # What-If Discount Simulator
+    st.subheader("What-If Discount Simulator")
+    st.markdown("*Simulate profitability under different discount policies*")
+    
+    # Prepare discount band analysis
+    df_bands = make_discount_bands(df)
+    band_table = band_profit_table(df_bands)
+    
+    if not band_table.empty:
+        # Center the slider
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            target_discount = st.slider(
+                "Target Discount (%)",
+                min_value=0,
+                max_value=50,
+                value=15,
+                step=1
+            )
+        
+        # Run simulation
+        simulation = simulate_profit(df, band_table, target_discount)
+        
+        # Display results
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Scenario Profit", format_currency(simulation['scenario_profit']))
+        
+        with col2:
+            delta_formatted = format_currency(abs(simulation['delta_profit']))
+            delta_symbol = "+" if simulation['delta_profit'] >= 0 else "-"
+            st.metric("Δ vs Actual", f"{delta_symbol}{delta_formatted}")
+        
+        with col3:
+            st.metric("Scenario Margin %", f"{simulation['scenario_margin']:.1f}%")
+        
+        # Comparison chart
+        comparison_data = pd.DataFrame({
+            'Scenario': ['Actual', 'Target'],
+            'Profit': [simulation['actual_profit'], simulation['scenario_profit']]
+        })
+        
+        fig7 = px.bar(
+            comparison_data,
+            x='Scenario',
+            y='Profit',
+            title="Actual vs Scenario Profit Comparison"
+        )
+        fig7.update_layout(height=300, showlegend=False)
+        fig7.update_yaxes(tickformat='$,.0f')
+        st.plotly_chart(fig7, use_container_width=True)
+        
+        # Plain English takeaway
+        impact = "increase" if simulation['delta_profit'] >= 0 else "decrease"
+        takeaway = f"At {target_discount}% target discount, projected profit is {format_currency(simulation['scenario_profit'])} ({impact} vs actual)."
+        
+        if not loss_makers.empty:
+            worst_category = loss_makers.iloc[0]['sub_category']
+            takeaway += f" Loss pressure comes mainly from {worst_category}; consider caps."
+        
+        st.info(takeaway)
+        
+    else:
+        st.warning("Unable to create discount simulation. Discount data may be missing.")
 
 if __name__ == "__main__":
     main()

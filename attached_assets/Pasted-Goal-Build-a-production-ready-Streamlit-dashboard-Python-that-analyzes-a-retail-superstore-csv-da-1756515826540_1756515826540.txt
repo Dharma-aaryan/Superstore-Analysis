@@ -1,0 +1,147 @@
+Goal: Build a production-ready Streamlit dashboard (Python) that analyzes a retail superstore.csv dataset and presents clear executive insights.
+Important: The ONLY interactive input must be a What-If Discount slider (0–50%). No sidebar, no other filters. The UI must be wide, modular, and neat.
+
+Tech & Files
+
+Create:
+
+app.py (main Streamlit app)
+
+requirements.txt (include: streamlit, pandas, numpy, plotly)
+
+.streamlit/config.toml with:
+
+[server]
+port = 5000
+headless = true
+
+
+Assume superstore.csv exists in the project root (read-only). Do not implement file upload.
+
+Data Model (columns)
+
+Dataset columns may vary in naming (“Order Date” vs “Order.Date”, etc.). Implement a safe column mapper to normalize these to:
+
+order_date, sales, profit, discount, order_id, customer_id, customer_name, category, sub_category, region, state, city, ship_mode, segment, quantity
+
+Coerce dates and numerics. Gracefully handle missing columns with clear warnings in the UI (but the app should still run).
+
+Layout (no sidebar)
+
+Use st.set_page_config(layout="wide", page_title="Superstore Insights")
+
+Top row: Executive KPIs in 4 columns:
+
+GMV = sum(sales)
+
+Gross Profit = sum(profit)
+
+Margin % = profit / sales
+
+Orders = unique(order_id)
+
+Below KPIs: 4 sections (each with a header and visuals), then the What-If Discount module last:
+
+Sales by Category (bar chart, descending GMV)
+
+Monthly Sales Trend (line chart across the full period)
+
+Profitability by Sub-Category
+
+Two visuals: total profit by sub-category (bar, ascending to expose loss-makers) and a highlight table of top 5 loss-making sub-categories (“black holes”).
+
+Geography Leaders
+
+Two visuals: Top 10 States by GMV (bar), Top 10 Cities by GMV (bar).
+
+Shipping Mode Profit
+
+Bar chart: total profit by ship_mode.
+
+Style: clean headings, tight spacing, consistent number formatting, no emojis. Use Plotly Express for charts.
+
+What-If Discount Simulator (the ONLY input)
+
+Business rule: Simulate profitability if we change the global discount policy.
+
+UI: A centered slider “Target Discount (%)” with range 0–50% (step 1). No other inputs.
+
+Method (band-based re-pricing; no list prices required):
+
+Build historical discount bands: 0–10%, 11–20%, 21–30%, 31–40%, 41–50%, 50%+.
+
+For each band, compute Avg Profit per Order (overall) and Avg Profit per Order per Category (optional enhancement).
+
+When the user picks a Target Discount, map every historical order to the nearest band around that target and use the historical Avg Profit per Order for that band as its simulated profit.
+
+Scenario Profit = sum of simulated profit across all orders.
+
+Scenario GMV = keep GMV constant (assumption: price sensitivity not modeled here).
+
+Scenario Margin % = Scenario Profit / Actual GMV.
+
+Δ Profit = Scenario Profit − Actual Profit; Δ Margin accordingly.
+
+Output cards (3 columns): Scenario Profit, Δ vs Actual, Scenario Margin %.
+
+Plot: small bar chart comparing Actual Profit vs Scenario Profit.
+
+Add a one-sentence, plain-English takeaway, e.g.:
+
+“At 12% target discount, projected profit is $X (Y% vs actual). Loss pressure comes mainly from Furniture; consider caps.”
+
+Guardrails:
+
+If a target discount maps to a band with sparse data, fall back to the nearest populated band.
+
+All calculations must be vectorized (pandas), not loops.
+
+Implementation Details
+
+Create small, testable functions in app.py:
+
+load_data(path) -> pd.DataFrame
+
+normalize_columns(df) -> pd.DataFrame
+
+compute_kpis(df) -> dict
+
+sales_by_category(df) -> pd.DataFrame
+
+monthly_sales(df) -> pd.DataFrame
+
+profit_by_subcategory(df) -> (df_profit_ranked, df_loss_top5)
+
+top_states(df, n=10) -> pd.DataFrame
+
+top_cities(df, n=10) -> pd.DataFrame
+
+ship_mode_profit(df) -> pd.DataFrame
+
+make_discount_bands(df) -> df_with_band
+
+band_profit_table(df_band) -> pd.DataFrame
+
+simulate_profit(df, band_table, target_discount) -> dict (returns scenario_profit, delta_profit, scenario_margin)
+
+Use @st.cache_data on load_data and any heavy aggregations.
+
+Charting: Plotly Express (px.bar, px.line), with clear titles, axis labels, thousands separators, and consistent currency formatting.
+
+UX & Formatting
+
+Use compact number formatting: GMV and Profit as $12.64M, $1.47M; margin as 11.6%.
+
+Section headers with short descriptive sub-text.
+
+All components aligned to full-width containers, separated by st.divider().
+
+Acceptance Criteria
+
+App runs on port 5000, no sidebar, only one input (discount slider).
+
+Shows KPIs; charts for category sales, monthly sales, sub-category profit (incl. top-5 loss table), top states and cities, shipping mode profit.
+
+What-If module computes scenario profit using historical Avg Profit per Order by discount band and displays cards + comparison chart + plain-English summary.
+
+Code is modular, readable, and relies on pandas/plotly/streamlit only.
