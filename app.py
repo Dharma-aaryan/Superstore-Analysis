@@ -251,6 +251,28 @@ def simulate_profit(df, band_table, target_discount):
         'actual_profit': actual_profit
     }
 
+def create_kpi_card(title, value, description, icon):
+    """Create a styled KPI card"""
+    card_html = f"""
+    <div style="
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        color: white;
+        margin-bottom: 1rem;
+        border-left: 4px solid #ffffff;
+    ">
+        <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.5rem; margin-right: 0.5rem;">{icon}</span>
+            <h4 style="margin: 0; font-size: 0.9rem; color: #e0e7ff;">{title}</h4>
+        </div>
+        <div style="font-size: 2rem; font-weight: bold; margin-bottom: 0.5rem;">{value}</div>
+        <p style="margin: 0; font-size: 0.8rem; color: #c7d2fe; line-height: 1.3;">{description}</p>
+    </div>
+    """
+    return card_html
+
 def executive_summary_tab(df):
     """Executive Summary Dashboard"""
     st.header("Executive Summary")
@@ -266,7 +288,7 @@ def executive_summary_tab(df):
     
     st.divider()
     
-    # KPIs with explanations
+    # KPIs with styled cards
     kpis = compute_kpis(df)
     
     st.subheader("Key Performance Indicators")
@@ -275,134 +297,204 @@ def executive_summary_tab(df):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.metric("GMV (Gross Merchandise Value)", format_currency(kpis['gmv']))
-        st.caption("**Total revenue** generated from all sales transactions. Measures market size and business scale.")
+        st.markdown(
+            create_kpi_card(
+                "GMV (Gross Merchandise Value)",
+                format_currency(kpis['gmv']),
+                "Total revenue generated from all sales transactions. Measures market size and business scale.",
+                "💰"
+            ),
+            unsafe_allow_html=True
+        )
     
     with col2:
-        st.metric("Gross Profit", format_currency(kpis['gross_profit']))
-        st.caption("**Total profit** after direct costs. Key indicator of business profitability and operational efficiency.")
+        st.markdown(
+            create_kpi_card(
+                "Gross Profit",
+                format_currency(kpis['gross_profit']),
+                "Total profit after direct costs. Key indicator of business profitability and operational efficiency.",
+                "📈"
+            ),
+            unsafe_allow_html=True
+        )
     
     with col3:
-        st.metric("Profit Margin", f"{kpis['margin_pct']:.1f}%")
-        st.caption("**Profit as percentage of sales**. Measures pricing effectiveness and cost management efficiency.")
+        st.markdown(
+            create_kpi_card(
+                "Profit Margin",
+                f"{kpis['margin_pct']:.1f}%",
+                "Profit as percentage of sales. Measures pricing effectiveness and cost management efficiency.",
+                "📊"
+            ),
+            unsafe_allow_html=True
+        )
     
     with col4:
-        st.metric("Total Orders", f"{kpis['orders']:,}")
-        st.caption("**Number of unique transactions**. Indicates customer engagement and business volume.")
+        st.markdown(
+            create_kpi_card(
+                "Total Orders",
+                f"{kpis['orders']:,}",
+                "Number of unique transactions. Indicates customer engagement and business volume.",
+                "🛒"
+            ),
+            unsafe_allow_html=True
+        )
     
     st.divider()
     
-    # Enhanced overview charts
+    # Enhanced overview charts with better alignment
     st.subheader("Business Overview")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("#### Sales Performance by Category")
-        category_data = sales_by_category(df)
-        if not category_data.empty:
-            # Enhanced donut chart
-            fig1 = px.pie(
-                category_data,
-                values='sales',
-                names='category',
-                title="Revenue Distribution Across Categories",
-                hole=0.4
-            )
-            fig1.update_traces(textposition='inside', textinfo='percent+label')
-            fig1.update_layout(height=400)
-            st.plotly_chart(fig1, use_container_width=True)
-            
-            # Summary table
-            category_data['Percentage'] = (category_data['sales'] / category_data['sales'].sum() * 100).round(1)
-            category_data['Sales_Formatted'] = category_data['sales'].apply(format_currency)
-            st.dataframe(
-                category_data[['category', 'Sales_Formatted', 'Percentage']].rename(columns={
-                    'category': 'Category',
-                    'Sales_Formatted': 'Sales',
-                    'Percentage': 'Share (%)'
-                }),
-                hide_index=True,
-                use_container_width=True
-            )
-        else:
-            st.warning("Category data not available")
+        # Container for chart and table alignment
+        chart_container = st.container()
+        table_container = st.container()
+        
+        with chart_container:
+            st.markdown("#### Sales Performance by Category")
+            category_data = sales_by_category(df)
+            if not category_data.empty:
+                # Enhanced donut chart
+                fig1 = px.pie(
+                    category_data,
+                    values='sales',
+                    names='category',
+                    title="Revenue Distribution Across Categories",
+                    hole=0.4,
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                fig1.update_traces(textposition='inside', textinfo='percent+label')
+                fig1.update_layout(height=400, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2))
+                st.plotly_chart(fig1, use_container_width=True)
+        
+        with table_container:
+            if not category_data.empty:
+                # Aligned summary table
+                category_data['Percentage'] = (category_data['sales'] / category_data['sales'].sum() * 100).round(1)
+                category_data['Sales_Formatted'] = category_data['sales'].apply(format_currency)
+                
+                st.markdown("**Category Performance Summary**")
+                st.dataframe(
+                    category_data[['category', 'Sales_Formatted', 'Percentage']].rename(columns={
+                        'category': 'Category',
+                        'Sales_Formatted': 'Sales',
+                        'Percentage': 'Share (%)'
+                    }),
+                    hide_index=True,
+                    use_container_width=True,
+                    height=150
+                )
+            else:
+                st.warning("Category data not available")
     
     with col2:
-        st.markdown("#### Monthly Sales Trend Analysis")
-        monthly_data = monthly_sales(df)
-        if not monthly_data.empty:
-            # Enhanced line chart with area fill
-            fig2 = px.area(
-                monthly_data,
-                x='order_date',
-                y='sales',
-                title="Sales Growth Trajectory Over Time"
-            )
-            fig2.update_layout(height=400)
-            fig2.update_yaxes(tickformat='$,.0f')
-            st.plotly_chart(fig2, use_container_width=True)
-            
-            # Growth metrics
-            if len(monthly_data) >= 2:
+        # Container for chart and metrics alignment
+        chart_container = st.container()
+        metrics_container = st.container()
+        
+        with chart_container:
+            st.markdown("#### Monthly Sales Trend Analysis")
+            monthly_data = monthly_sales(df)
+            if not monthly_data.empty:
+                # Enhanced line chart with area fill
+                fig2 = px.area(
+                    monthly_data,
+                    x='order_date',
+                    y='sales',
+                    title="Sales Growth Trajectory Over Time",
+                    color_discrete_sequence=['#667eea']
+                )
+                fig2.update_layout(height=400, showlegend=False)
+                fig2.update_yaxes(tickformat='$,.0f')
+                st.plotly_chart(fig2, use_container_width=True)
+        
+        with metrics_container:
+            if not monthly_data.empty and len(monthly_data) >= 2:
+                # Aligned growth metrics
                 latest_month = monthly_data.iloc[-1]['sales']
                 previous_month = monthly_data.iloc[-2]['sales']
                 growth_rate = ((latest_month - previous_month) / previous_month * 100) if previous_month != 0 else 0
                 
+                st.markdown("**Monthly Performance Metrics**")
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    st.metric("Latest Month Sales", format_currency(latest_month))
+                    st.markdown(
+                        f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
+                        <strong>Latest Month</strong><br>
+                        <span style="font-size: 1.2rem; color: #667eea;">{format_currency(latest_month)}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
                 with col_b:
-                    st.metric("Month-over-Month Growth", f"{growth_rate:.1f}%")
-        else:
-            st.warning("Time series data not available")
+                    growth_color = "#28a745" if growth_rate >= 0 else "#dc3545"
+                    st.markdown(
+                        f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
+                        <strong>MoM Growth</strong><br>
+                        <span style="font-size: 1.2rem; color: {growth_color};">{growth_rate:.1f}%</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.warning("Time series data not available")
 
 def sales_analysis_tab(df):
     """Sales Analysis Dashboard"""
     st.header("Sales Analysis")
     st.markdown("*Deep dive into sales patterns and category performance*")
     
+    # Main charts section
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Sales by Category")
-        category_data = sales_by_category(df)
-        if not category_data.empty:
-            fig = px.bar(
-                category_data,
-                x='sales',
-                y='category',
-                orientation='h',
-                title="Revenue by Product Category",
-                color='sales',
-                color_continuous_scale='viridis'
-            )
-            fig.update_layout(height=400, showlegend=False)
-            fig.update_xaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Category data not available")
+        chart_container = st.container()
+        with chart_container:
+            st.subheader("Sales by Category")
+            category_data = sales_by_category(df)
+            if not category_data.empty:
+                fig = px.bar(
+                    category_data,
+                    x='sales',
+                    y='category',
+                    orientation='h',
+                    title="Revenue by Product Category",
+                    color='sales',
+                    color_continuous_scale='Blues'
+                )
+                fig.update_layout(height=400, showlegend=False)
+                fig.update_xaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Category data not available")
     
     with col2:
-        st.subheader("Monthly Sales Trend")
-        monthly_data = monthly_sales(df)
-        if not monthly_data.empty:
-            fig = px.line(
-                monthly_data,
-                x='order_date',
-                y='sales',
-                title="Sales Performance Over Time",
-                markers=True
-            )
-            fig.update_layout(height=400)
-            fig.update_yaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Time series data not available")
+        chart_container = st.container()
+        with chart_container:
+            st.subheader("Monthly Sales Trend")
+            monthly_data = monthly_sales(df)
+            if not monthly_data.empty:
+                fig = px.line(
+                    monthly_data,
+                    x='order_date',
+                    y='sales',
+                    title="Sales Performance Over Time",
+                    markers=True,
+                    color_discrete_sequence=['#667eea']
+                )
+                fig.update_layout(height=400, showlegend=False)
+                fig.update_yaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Time series data not available")
     
-    # Sales performance table
+    st.divider()
+    
+    # Aligned sales performance table
     if 'category' in df.columns and 'sub_category' in df.columns:
         st.subheader("Detailed Sales Performance")
+        st.markdown("*Comprehensive breakdown by category and sub-category*")
+        
         sales_summary = df.groupby(['category', 'sub_category']).agg({
             'sales': ['sum', 'mean', 'count']
         }).round(2)
@@ -410,11 +502,33 @@ def sales_analysis_tab(df):
         sales_summary = sales_summary.reset_index()
         sales_summary = sales_summary.sort_values('Total Sales', ascending=False)
         
-        # Format the table
+        # Format the table with better styling
         sales_summary['Total Sales'] = sales_summary['Total Sales'].apply(format_currency)
         sales_summary['Avg Sale Value'] = sales_summary['Avg Sale Value'].apply(lambda x: f"${x:.2f}")
         
-        st.dataframe(sales_summary, use_container_width=True, hide_index=True)
+        # Display top performers in a highlighted section
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.dataframe(
+                sales_summary,
+                use_container_width=True,
+                hide_index=True,
+                height=400
+            )
+        
+        with col2:
+            st.markdown("**Top Performers**")
+            top_5 = sales_summary.head(5)
+            for idx, row in top_5.iterrows():
+                st.markdown(
+                    f"""<div style="background: #f8f9fa; padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid #667eea;">
+                    <strong>{row['sub_category']}</strong><br>
+                    <small>{row['category']}</small><br>
+                    <span style="color: #667eea;">{row['Total Sales']}</span>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
 
 def profitability_tab(df):
     """Profitability Analysis Dashboard"""
@@ -423,51 +537,75 @@ def profitability_tab(df):
     
     profit_data, loss_makers = profit_by_subcategory(df)
     
+    # Main analysis section with better alignment
     col1, col2 = st.columns([2, 1])
     
     with col1:
-        st.subheader("Profit by Sub-Category")
-        if not profit_data.empty:
-            # Enhanced profit visualization with color coding
-            colors = ['red' if x < 0 else 'green' for x in profit_data['profit']]
-            fig = px.bar(
-                profit_data.tail(20),  # Show bottom 20 to highlight issues
-                x='profit',
-                y='sub_category',
-                orientation='h',
-                title="Profitability Analysis by Sub-Category",
-                color=profit_data.tail(20)['profit'],
-                color_continuous_scale=['red', 'yellow', 'green']
-            )
-            fig.update_layout(height=600, showlegend=False)
-            fig.update_xaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Sub-category data not available")
+        chart_container = st.container()
+        with chart_container:
+            st.subheader("Profit by Sub-Category")
+            if not profit_data.empty:
+                # Enhanced profit visualization with color coding
+                fig = px.bar(
+                    profit_data.tail(20),  # Show bottom 20 to highlight issues
+                    x='profit',
+                    y='sub_category',
+                    orientation='h',
+                    title="Profitability Analysis by Sub-Category",
+                    color=profit_data.tail(20)['profit'],
+                    color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+                )
+                fig.update_layout(height=600, showlegend=False)
+                fig.update_xaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Sub-category data not available")
     
     with col2:
-        st.subheader("Loss-Making Categories")
-        if not loss_makers.empty:
-            st.markdown("**Top 5 Loss-Making Sub-Categories:**")
-            
-            # Create a detailed loss table
-            loss_table = loss_makers.copy()
-            loss_table['Loss Amount'] = loss_table['profit'].apply(lambda x: format_currency(abs(x)))
-            loss_table = loss_table[['sub_category', 'Loss Amount']].rename(columns={
-                'sub_category': 'Sub-Category'
-            })
-            
-            st.dataframe(loss_table, hide_index=True, use_container_width=True)
-            
-            # Loss summary
-            total_loss = abs(loss_makers['profit'].sum())
-            st.metric("Total Loss from Top 5", format_currency(total_loss))
-        else:
-            st.success("No loss-making sub-categories found")
+        # Aligned sidebar content
+        sidebar_container = st.container()
+        with sidebar_container:
+            st.subheader("Loss Analysis")
+            if not loss_makers.empty:
+                st.markdown("**Top 5 Loss-Making Categories**")
+                
+                # Styled loss makers display
+                for idx, row in loss_makers.iterrows():
+                    loss_amount = format_currency(abs(row['profit']))
+                    st.markdown(
+                        f"""<div style="background: #fff2f2; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        <strong style="color: #721c24;">{row['sub_category']}</strong><br>
+                        <span style="color: #dc3545; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+                
+                # Total loss metric card
+                total_loss = abs(loss_makers['profit'].sum())
+                st.markdown(
+                    f"""<div style="background: #dc3545; color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-top: 1rem;">
+                    <h4 style="margin: 0; color: white;">Total Loss Impact</h4>
+                    <div style="font-size: 1.8rem; font-weight: bold; margin-top: 0.5rem;">{format_currency(total_loss)}</div>
+                    <small>From top 5 loss-makers</small>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.markdown(
+                    """<div style="background: #d4edda; color: #155724; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                    <h4 style="margin: 0;">✅ Excellent Performance</h4>
+                    <p style="margin: 0.5rem 0 0 0;">No loss-making sub-categories found</p>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
     
-    # Profit margin analysis
+    st.divider()
+    
+    # Aligned profit margin analysis
     if 'category' in df.columns:
         st.subheader("Profit Margin Analysis by Category")
+        st.markdown("*Category-wise profitability comparison*")
+        
         margin_data = df.groupby('category').agg({
             'sales': 'sum',
             'profit': 'sum'
@@ -475,17 +613,40 @@ def profitability_tab(df):
         margin_data['profit_margin'] = (margin_data['profit'] / margin_data['sales'] * 100).round(2)
         margin_data = margin_data.reset_index().sort_values('profit_margin', ascending=False)
         
-        fig = px.bar(
-            margin_data,
-            x='category',
-            y='profit_margin',
-            title="Profit Margin by Category",
-            color='profit_margin',
-            color_continuous_scale='RdYlGn'
-        )
-        fig.update_layout(height=400)
-        fig.update_yaxes(title="Profit Margin (%)")
-        st.plotly_chart(fig, use_container_width=True)
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            fig = px.bar(
+                margin_data,
+                x='category',
+                y='profit_margin',
+                title="Profit Margin by Category",
+                color='profit_margin',
+                color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+            )
+            fig.update_layout(height=400, showlegend=False)
+            fig.update_yaxes(title="Profit Margin (%)")
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with col2:
+            st.markdown("**Margin Performance**")
+            # Format and display margin data
+            margin_display = margin_data.copy()
+            margin_display['sales'] = margin_display['sales'].apply(format_currency)
+            margin_display['profit'] = margin_display['profit'].apply(format_currency)
+            margin_display = margin_display.rename(columns={
+                'category': 'Category',
+                'sales': 'Sales',
+                'profit': 'Profit',
+                'profit_margin': 'Margin (%)'
+            })
+            
+            st.dataframe(
+                margin_display,
+                hide_index=True,
+                use_container_width=True,
+                height=300
+            )
 
 def geography_tab(df):
     """Geography Analysis Dashboard"""
@@ -495,121 +656,184 @@ def geography_tab(df):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Top States by Revenue")
-        states_data = top_states(df)
-        if not states_data.empty:
-            fig = px.bar(
-                states_data,
-                x='sales',
-                y='state',
-                orientation='h',
-                title="Top 10 States by GMV",
-                color='sales',
-                color_continuous_scale='blues'
-            )
-            fig.update_layout(height=500, showlegend=False)
-            fig.update_xaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Top states table
-            states_data['Sales_Formatted'] = states_data['sales'].apply(format_currency)
-            st.dataframe(
-                states_data[['state', 'Sales_Formatted']].rename(columns={
-                    'state': 'State',
-                    'Sales_Formatted': 'Revenue'
-                }),
-                hide_index=True,
-                use_container_width=True
-            )
-        else:
-            st.warning("State data not available")
+        # States analysis with aligned chart and table
+        chart_container = st.container()
+        table_container = st.container()
+        
+        with chart_container:
+            st.subheader("Top States by Revenue")
+            states_data = top_states(df)
+            if not states_data.empty:
+                fig = px.bar(
+                    states_data,
+                    x='sales',
+                    y='state',
+                    orientation='h',
+                    title="Top 10 States by GMV",
+                    color='sales',
+                    color_continuous_scale='Blues'
+                )
+                fig.update_layout(height=450, showlegend=False)
+                fig.update_xaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with table_container:
+            if not states_data.empty:
+                st.markdown("**State Performance Summary**")
+                # Styled state data display
+                states_data['Sales_Formatted'] = states_data['sales'].apply(format_currency)
+                
+                # Show top 5 in styled cards
+                for idx, row in states_data.head(5).iterrows():
+                    rank = idx + 1
+                    st.markdown(
+                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid #0d6efd; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="background: #0d6efd; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
+                            <strong>{row['state']}</strong>
+                        </div>
+                        <span style="color: #0d6efd; font-weight: bold;">{row['Sales_Formatted']}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.warning("State data not available")
     
     with col2:
-        st.subheader("Top Cities by Revenue")
-        cities_data = top_cities(df)
-        if not cities_data.empty:
-            fig = px.bar(
-                cities_data,
-                x='sales',
-                y='city',
-                orientation='h',
-                title="Top 10 Cities by GMV",
-                color='sales',
-                color_continuous_scale='greens'
-            )
-            fig.update_layout(height=500, showlegend=False)
-            fig.update_xaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Top cities table
-            cities_data['Sales_Formatted'] = cities_data['sales'].apply(format_currency)
-            st.dataframe(
-                cities_data[['city', 'Sales_Formatted']].rename(columns={
-                    'city': 'City',
-                    'Sales_Formatted': 'Revenue'
-                }),
-                hide_index=True,
-                use_container_width=True
-            )
-        else:
-            st.warning("City data not available")
+        # Cities analysis with aligned chart and table
+        chart_container = st.container()
+        table_container = st.container()
+        
+        with chart_container:
+            st.subheader("Top Cities by Revenue")
+            cities_data = top_cities(df)
+            if not cities_data.empty:
+                fig = px.bar(
+                    cities_data,
+                    x='sales',
+                    y='city',
+                    orientation='h',
+                    title="Top 10 Cities by GMV",
+                    color='sales',
+                    color_continuous_scale='Greens'
+                )
+                fig.update_layout(height=450, showlegend=False)
+                fig.update_xaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
+        
+        with table_container:
+            if not cities_data.empty:
+                st.markdown("**City Performance Summary**")
+                # Styled city data display
+                cities_data['Sales_Formatted'] = cities_data['sales'].apply(format_currency)
+                
+                # Show top 5 in styled cards
+                for idx, row in cities_data.head(5).iterrows():
+                    rank = idx + 1
+                    st.markdown(
+                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid #198754; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="background: #198754; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
+                            <strong>{row['city']}</strong>
+                        </div>
+                        <span style="color: #198754; font-weight: bold;">{row['Sales_Formatted']}</span>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
+            else:
+                st.warning("City data not available")
 
 def operations_tab(df):
     """Operations Analysis Dashboard"""
     st.header("Operations Analysis")
     st.markdown("*Shipping performance and operational efficiency metrics*")
     
-    # Shipping mode analysis
+    # Shipping mode analysis with better alignment
     st.subheader("Shipping Mode Profitability")
     shipping_data = ship_mode_profit(df)
     if not shipping_data.empty:
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            fig = px.bar(
-                shipping_data,
-                x='ship_mode',
-                y='profit',
-                title="Total Profit by Shipping Mode",
-                color='profit',
-                color_continuous_scale='RdYlGn'
-            )
-            fig.update_layout(height=400, showlegend=False)
-            fig.update_yaxes(tickformat='$,.0f')
-            st.plotly_chart(fig, use_container_width=True)
+            chart_container = st.container()
+            with chart_container:
+                fig = px.bar(
+                    shipping_data,
+                    x='ship_mode',
+                    y='profit',
+                    title="Total Profit by Shipping Mode",
+                    color='profit',
+                    color_continuous_scale=['#dc3545', '#ffc107', '#28a745']
+                )
+                fig.update_layout(height=400, showlegend=False)
+                fig.update_yaxes(tickformat='$,.0f')
+                st.plotly_chart(fig, use_container_width=True)
         
         with col2:
-            # Shipping summary table
-            shipping_data['Profit_Formatted'] = shipping_data['profit'].apply(format_currency)
-            st.dataframe(
-                shipping_data[['ship_mode', 'Profit_Formatted']].rename(columns={
-                    'ship_mode': 'Shipping Mode',
-                    'Profit_Formatted': 'Total Profit'
-                }),
-                hide_index=True,
-                use_container_width=True
-            )
+            # Aligned shipping summary with styled cards
+            table_container = st.container()
+            with table_container:
+                st.markdown("**Shipping Performance**")
+                
+                for idx, row in shipping_data.iterrows():
+                    profit_color = "#28a745" if row['profit'] >= 0 else "#dc3545"
+                    profit_formatted = format_currency(abs(row['profit']))
+                    profit_sign = "" if row['profit'] >= 0 else "-"
+                    
+                    st.markdown(
+                        f"""<div style="background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {profit_color};">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <strong>{row['ship_mode']}</strong>
+                            <span style="color: {profit_color}; font-weight: bold; font-size: 1.1rem;">{profit_sign}{profit_formatted}</span>
+                        </div>
+                        </div>""",
+                        unsafe_allow_html=True
+                    )
     else:
         st.warning("Shipping mode data not available")
     
-    # Additional operational metrics
+    st.divider()
+    
+    # Enhanced operational metrics with styled cards
     if 'quantity' in df.columns and 'order_id' in df.columns:
         st.subheader("Operational Efficiency Metrics")
+        st.markdown("*Key operational performance indicators*")
         
         col1, col2, col3 = st.columns(3)
         
         with col1:
             avg_order_size = df['quantity'].mean()
-            st.metric("Average Order Size", f"{avg_order_size:.1f} items")
+            st.markdown(
+                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">📦 Average Order Size</div>
+                <div style="font-size: 2rem; font-weight: bold;">{avg_order_size:.1f}</div>
+                <div style="font-size: 0.8rem; color: #c7d2fe;">items per order</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
         
         with col2:
             total_items = df['quantity'].sum()
-            st.metric("Total Items Sold", f"{total_items:,}")
+            st.markdown(
+                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">📊 Total Items Sold</div>
+                <div style="font-size: 2rem; font-weight: bold;">{total_items:,}</div>
+                <div style="font-size: 0.8rem; color: #c7d2fe;">total units</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
         
         with col3:
             unique_customers = df['customer_id'].nunique() if 'customer_id' in df.columns else 0
             avg_orders_per_customer = len(df) / unique_customers if unique_customers > 0 else 0
-            st.metric("Avg Orders per Customer", f"{avg_orders_per_customer:.1f}")
+            st.markdown(
+                f"""<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 10px; color: white; text-align: center;">
+                <div style="font-size: 1rem; margin-bottom: 0.5rem; color: #e0e7ff;">👥 Avg Orders per Customer</div>
+                <div style="font-size: 2rem; font-weight: bold;">{avg_orders_per_customer:.1f}</div>
+                <div style="font-size: 0.8rem; color: #c7d2fe;">orders per customer</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
 
 def what_if_calculator_tab(df):
     """What-If Discount Calculator"""
