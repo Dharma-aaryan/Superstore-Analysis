@@ -291,13 +291,11 @@ def executive_summary_tab(df):
     """Executive Summary Dashboard"""
     st.header("Executive Summary")
     
-    # Project Description
+    # Metrics explanation
     st.markdown("""
-    ### About This Dashboard
-    This **Superstore Insights Dashboard** provides comprehensive analytics for retail performance optimization. 
-    Built using advanced data analytics, it transforms raw transactional data into actionable business intelligence 
-    for executive decision-making. The dashboard analyzes sales patterns, profitability drivers, geographic performance, 
-    and operational efficiency to identify growth opportunities and operational improvements.
+    **Executive Metrics Overview:** These key performance indicators provide a high-level view of business health. 
+    GMV shows total revenue scale, Gross Profit indicates profitability, Profit Margin measures efficiency, 
+    and Total Orders reflects business volume and customer engagement.
     """)
     
     st.divider()
@@ -435,7 +433,7 @@ def executive_summary_tab(df):
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.markdown(
-                        f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
+                        f"""<div style="background: {COLORS['card_bg']}; padding: 1rem; border-radius: 5px; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
                         <strong>Latest Month</strong><br>
                         <span style="font-size: 1.2rem; color: {COLORS['sales']};">{format_currency(latest_month)}</span>
                         </div>""",
@@ -444,7 +442,7 @@ def executive_summary_tab(df):
                 with col_b:
                     growth_color = COLORS['profit_positive'] if growth_rate >= 0 else COLORS['profit_negative']
                     st.markdown(
-                        f"""<div style="background: #f0f2f6; padding: 1rem; border-radius: 5px; text-align: center;">
+                        f"""<div style="background: {COLORS['card_bg']}; padding: 1rem; border-radius: 5px; text-align: center; border: 1px solid rgba(255,255,255,0.1);">
                         <strong>MoM Growth</strong><br>
                         <span style="font-size: 1.2rem; color: {growth_color};">{growth_rate:.1f}%</span>
                         </div>""",
@@ -456,7 +454,8 @@ def executive_summary_tab(df):
 def sales_analysis_tab(df):
     """Sales Analysis Dashboard"""
     st.header("Sales Analysis")
-    st.markdown("*Deep dive into sales patterns and category performance*")
+    st.markdown("""**Sales Performance Metrics:** This section analyzes revenue patterns across product categories and time periods. 
+    The charts show category-wise revenue distribution and monthly sales trends to identify growth opportunities and seasonal patterns.""")
     
     # Main charts section
     col1, col2 = st.columns(2)
@@ -538,7 +537,7 @@ def sales_analysis_tab(df):
             top_5 = sales_summary.head(5)
             for idx, row in top_5.iterrows():
                 st.markdown(
-                    f"""<div style="background: #f8f9fa; padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid {COLORS['sales']};">
+                    f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid {COLORS['sales']};">
                     <strong>{row['sub_category']}</strong><br>
                     <small>{row['category']}</small><br>
                     <span style="color: {COLORS['sales']};">{row['Total Sales']}</span>
@@ -549,7 +548,8 @@ def sales_analysis_tab(df):
 def profitability_tab(df):
     """Profitability Analysis Dashboard"""
     st.header("Profitability Analysis")
-    st.markdown("*Identify profitable segments and loss-making areas*")
+    st.markdown("""**Profitability Insights:** These metrics identify which products and categories generate the highest profits versus losses. 
+    Focus areas include sub-category profitability analysis and margin performance to optimize product mix and pricing strategies.""")
     
     profit_data, loss_makers = profit_by_subcategory(df)
     
@@ -589,8 +589,8 @@ def profitability_tab(df):
                 for idx, row in loss_makers.iterrows():
                     loss_amount = format_currency(abs(row['profit']))
                     st.markdown(
-                        f"""<div style="background: #fff2f2; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_negative']};">
-                        <strong style="color: #721c24;">{row['sub_category']}</strong><br>
+                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_negative']};">
+                        <strong style="color: {COLORS['profit_negative']};">{row['sub_category']}</strong><br>
                         <span style="color: {COLORS['profit_negative']}; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
                         </div>""",
                         unsafe_allow_html=True
@@ -668,7 +668,8 @@ def profitability_tab(df):
 def geography_tab(df):
     """Geography Analysis Dashboard"""
     st.header("Geographic Performance")
-    st.markdown("*Regional sales leaders and market penetration analysis*")
+    st.markdown("""**Geographic Revenue Analysis:** These metrics show revenue performance across states and cities to identify 
+    high-performing markets and expansion opportunities. Rankings help prioritize resource allocation and market focus.""")
     
     col1, col2 = st.columns(2)
     
@@ -703,7 +704,7 @@ def geography_tab(df):
                 for idx, row in states_data.head(5).iterrows():
                     rank = idx + 1
                     st.markdown(
-                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid {COLORS['accent']}; display: flex; justify-content: space-between; align-items: center;">
+                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid {COLORS['accent']}; display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <span style="background: {COLORS['accent']}; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
                             <strong>{row['state']}</strong>
@@ -746,12 +747,12 @@ def geography_tab(df):
                 for idx, row in cities_data.head(5).iterrows():
                     rank = idx + 1
                     st.markdown(
-                        f"""<div style="background: #f8f9fa; padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid #198754; display: flex; justify-content: space-between; align-items: center;">
+                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 0.8rem; margin: 0.3rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_positive']}; display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <span style="background: #198754; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
+                            <span style="background: {COLORS['profit_positive']}; color: white; padding: 0.2rem 0.5rem; border-radius: 50%; font-size: 0.8rem; margin-right: 0.5rem;">{rank}</span>
                             <strong>{row['city']}</strong>
                         </div>
-                        <span style="color: #198754; font-weight: bold;">{row['Sales_Formatted']}</span>
+                        <span style="color: {COLORS['profit_positive']}; font-weight: bold;">{row['Sales_Formatted']}</span>
                         </div>""",
                         unsafe_allow_html=True
                     )
@@ -761,7 +762,8 @@ def geography_tab(df):
 def operations_tab(df):
     """Operations Analysis Dashboard"""
     st.header("Operations Analysis")
-    st.markdown("*Shipping performance and operational efficiency metrics*")
+    st.markdown("""**Operational Efficiency Metrics:** These indicators track shipping mode profitability, order volumes, and customer behavior patterns. 
+    Key metrics include average order size, total items sold, and orders per customer to optimize operational processes.""")
     
     # Shipping mode analysis with better alignment
     st.subheader("Shipping Mode Profitability")
@@ -796,7 +798,7 @@ def operations_tab(df):
                     profit_sign = "" if row['profit'] >= 0 else "-"
                     
                     st.markdown(
-                        f"""<div style="background: #f8f9fa; padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {profit_color};">
+                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {profit_color};">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <strong>{row['ship_mode']}</strong>
                             <span style="color: {profit_color}; font-weight: bold; font-size: 1.1rem;">{profit_sign}{profit_formatted}</span>
@@ -853,7 +855,8 @@ def operations_tab(df):
 def what_if_calculator_tab(df):
     """What-If Discount Calculator"""
     st.header("What-If Discount Calculator")
-    st.markdown("*Simulate profitability under different discount policies*")
+    st.markdown("""**Discount Impact Simulator:** This tool models how different discount strategies affect overall profitability. 
+    Use the slider to test various discount percentages and see projected profit changes, helping optimize pricing strategies.""")
     
     # Prepare discount band analysis
     df_bands = make_discount_bands(df)
