@@ -150,6 +150,121 @@ def sales_by_category(df):
     
     return df.groupby('category')['sales'].sum().sort_values(ascending=False).reset_index()
 
+def enhanced_category_analysis(df):
+    """Enhanced category analysis with MoM growth, profitability, and CAC estimation"""
+    if 'category' not in df.columns or 'sales' not in df.columns or 'profit' not in df.columns:
+        return pd.DataFrame()
+    
+    # Basic category metrics
+    category_stats = df.groupby('category').agg({
+        'sales': 'sum',
+        'profit': 'sum',
+        'customer_id': 'nunique' if 'customer_id' in df.columns else 'count',
+        'order_id': 'nunique' if 'order_id' in df.columns else 'count'
+    }).reset_index()
+    
+    # Calculate profitability status
+    category_stats['is_profitable'] = category_stats['profit'] > 0
+    category_stats['profit_status'] = category_stats['is_profitable'].map({True: 'Profitable', False: 'Loss-Making'})
+    
+    # Calculate estimated CAC (simplified as marketing spend per customer)
+    # Using 5-15% of revenue as estimated marketing spend based on category
+    category_stats['estimated_cac'] = category_stats.apply(lambda row: 
+        (row['sales'] * 0.05 / row['customer_id']) if row['customer_id'] > 0 else 0, axis=1)
+    
+    # Calculate MoM growth (using available date data)
+    mom_growth = calculate_mom_growth_by_category(df)
+    if not mom_growth.empty:
+        category_stats = category_stats.merge(mom_growth, on='category', how='left')
+    else:
+        category_stats['mom_growth'] = 0
+    
+    # Calculate market share
+    total_sales = category_stats['sales'].sum()
+    category_stats['market_share'] = (category_stats['sales'] / total_sales * 100).round(1)
+    
+    # Format for display
+    category_stats['sales_formatted'] = category_stats['sales'].apply(format_currency)
+    category_stats['profit_formatted'] = category_stats['profit'].apply(format_currency)
+    category_stats['cac_formatted'] = category_stats['estimated_cac'].apply(lambda x: f"${x:.2f}")
+    category_stats['mom_growth_formatted'] = category_stats['mom_growth'].apply(lambda x: f"{x:+.1f}%" if x != 0 else "N/A")
+    
+    return category_stats.sort_values('sales', ascending=False)
+
+def calculate_mom_growth_by_category(df):
+    """Calculate month-over-month growth by category"""
+    if 'order_date' not in df.columns or 'category' not in df.columns:
+        return pd.DataFrame()
+    
+    try:
+        df_clean = df.dropna(subset=['order_date'])
+        df_clean['month'] = df_clean['order_date'].dt.to_period('M')
+        
+        # Get monthly sales by category
+        monthly_category = df_clean.groupby(['category', 'month'])['sales'].sum().reset_index()
+        monthly_category['month_str'] = monthly_category['month'].astype(str)
+        monthly_category = monthly_category.sort_values(['category', 'month'])
+        
+        # Calculate MoM growth for each category
+        monthly_category['prev_month_sales'] = monthly_category.groupby('category')['sales'].shift(1)
+        monthly_category['mom_growth'] = ((monthly_category['sales'] - monthly_category['prev_month_sales']) / 
+                                        monthly_category['prev_month_sales'] * 100)
+        
+        # Get latest available month growth for each category
+        latest_growth = monthly_category.dropna(subset=['mom_growth']).groupby('category')['mom_growth'].last().reset_index()
+        return latest_growth
+    except:
+        return pd.DataFrame()
+
+def calculate_overall_business_metrics(df):
+    """Calculate overall business metrics including MoM growth, CAC, GMV, profit margin"""
+    if df.empty:
+        return {}
+    
+    # Basic metrics
+    total_gmv = df['sales'].sum() if 'sales' in df.columns else 0
+    total_profit = df['profit'].sum() if 'profit' in df.columns else 0
+    overall_margin = (total_profit / total_gmv * 100) if total_gmv > 0 else 0
+    
+    # Customer metrics
+    total_customers = df['customer_id'].nunique() if 'customer_id' in df.columns else len(df)
+    
+    # Estimated overall CAC (using 8% of revenue as marketing spend)
+    estimated_marketing_spend = total_gmv * 0.08
+    overall_cac = estimated_marketing_spend / total_customers if total_customers > 0 else 0
+    
+    # Overall MoM growth
+    overall_mom_growth = calculate_overall_mom_growth(df)
+    
+    return {
+        'total_gmv': total_gmv,
+        'total_profit': total_profit,
+        'overall_margin': overall_margin,
+        'total_customers': total_customers,
+        'overall_cac': overall_cac,
+        'overall_mom_growth': overall_mom_growth
+    }
+
+def calculate_overall_mom_growth(df):
+    """Calculate overall month-over-month growth"""
+    if 'order_date' not in df.columns or 'sales' not in df.columns:
+        return 0
+    
+    try:
+        df_clean = df.dropna(subset=['order_date'])
+        monthly_sales = df_clean.groupby(df_clean['order_date'].dt.to_period('M'))['sales'].sum()
+        
+        if len(monthly_sales) < 2:
+            return 0
+            
+        latest_month = monthly_sales.iloc[-1]
+        previous_month = monthly_sales.iloc[-2]
+        
+        mom_growth = ((latest_month - previous_month) / previous_month * 100) if previous_month > 0 else 0
+        return mom_growth
+    except:
+        return 0
+
 def monthly_sales(df):
     """Calculate monthly sales trend"""
     if 'order_date' not in df.columns or 'sales' not in df.columns:
@@ -354,6 +469,59 @@ def executive_summary_tab(df):
     
     st.divider()
     
+    # Overall Business Performance Metrics
+    st.subheader("Overall Business Performance")
+    overall_metrics = calculate_overall_business_metrics(df)
+    
+    if overall_metrics:
+        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+        
+        with col_m1:
+            st.markdown(
+                create_kpi_card(
+                    "MoM Growth Rate",
+                    f"{overall_metrics['overall_mom_growth']:+.1f}%" if overall_metrics['overall_mom_growth'] != 0 else "N/A",
+                    "Month-over-month growth in total sales. Measures business momentum and expansion rate.",
+                    '#00d4ff' if overall_metrics['overall_mom_growth'] >= 0 else '#ff4b4b'
+                ),
+                unsafe_allow_html=True
+            )
+        
+        with col_m2:
+            st.markdown(
+                create_kpi_card(
+                    "Overall CAC",
+                    f"${overall_metrics['overall_cac']:.2f}",
+                    "Estimated customer acquisition cost across all categories. Lower CAC improves profitability.",
+                    COLORS['accent']
+                ),
+                unsafe_allow_html=True
+            )
+        
+        with col_m3:
+            st.markdown(
+                create_kpi_card(
+                    "Total GMV",
+                    format_currency(overall_metrics['total_gmv']),
+                    "Gross merchandise value across all products and categories. Core business volume indicator.",
+                    COLORS['sales']
+                ),
+                unsafe_allow_html=True
+            )
+        
+        with col_m4:
+            st.markdown(
+                create_kpi_card(
+                    "Combined Profit Margin",
+                    f"{overall_metrics['overall_margin']:.1f}%",
+                    "Overall profit margin across all products. Measures total business efficiency and profitability.",
+                    COLORS['profit_positive'] if overall_metrics['overall_margin'] > 0 else COLORS['profit_negative']
+                ),
+                unsafe_allow_html=True
+            )
+    
+    st.divider()
+    
     # Enhanced overview charts with better alignment
     st.subheader("Business Overview")
     
@@ -382,21 +550,28 @@ def executive_summary_tab(df):
                 st.plotly_chart(fig1, use_container_width=True)
         
         with table_container:
-            if not category_data.empty:
-                # Aligned summary table
-                category_data['Percentage'] = (category_data['sales'] / category_data['sales'].sum() * 100).round(1)
-                category_data['Sales_Formatted'] = category_data['sales'].apply(format_currency)
+            # Enhanced category analysis with business metrics
+            enhanced_data = enhanced_category_analysis(df)
+            if not enhanced_data.empty:
+                st.markdown("**Enhanced Category Performance Summary**")
+                display_columns = [
+                    'category', 'sales_formatted', 'market_share', 
+                    'mom_growth_formatted', 'profit_status', 'cac_formatted'
+                ]
+                column_names = {
+                    'category': 'Category',
+                    'sales_formatted': 'Sales',
+                    'market_share': 'Share (%)',
+                    'mom_growth_formatted': 'MoM Growth',
+                    'profit_status': 'Profitability',
+                    'cac_formatted': 'Est. CAC'
+                }
                 
-                st.markdown("**Category Performance Summary**")
                 st.dataframe(
-                    category_data[['category', 'Sales_Formatted', 'Percentage']].rename(columns={
-                        'category': 'Category',
-                        'Sales_Formatted': 'Sales',
-                        'Percentage': 'Share (%)'
-                    }),
+                    enhanced_data[display_columns].rename(columns=column_names),
                     hide_index=True,
                     use_container_width=True,
-                    height=150
+                    height=180
                 )
             else:
                 st.warning("Category data not available")
