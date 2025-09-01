@@ -419,7 +419,7 @@ def executive_summary_tab(df):
     kpis = compute_kpis(df)
     
     st.subheader("Key Performance Indicators")
-    st.markdown("*Core business metrics that drive strategic decisions*")
+ 
     
     col1, col2, col3, col4 = st.columns(4)
     
@@ -476,7 +476,7 @@ def executive_summary_tab(df):
     
     with col1:
         # Sales performance chart
-        st.markdown("#### Sales Performance by Category")
+        # st.markdown("#### Sales Performance by Category")
         category_data = sales_by_category(df)
         if not category_data.empty:
             # Enhanced donut chart with consistent colors
@@ -494,7 +494,7 @@ def executive_summary_tab(df):
     
     with col2:
         # Sales Growth Trajectory Over Time
-        st.markdown("#### Monthly Sales Trend Analysis")
+        # st.markdown("#### Monthly Sales Trend Analysis")
         monthly_data = monthly_sales(df)
         if not monthly_data.empty:
             # Enhanced line chart with area fill
@@ -532,7 +532,7 @@ def executive_summary_tab(df):
             enhanced_data[display_columns].rename(columns=column_names),
             hide_index=True,
             use_container_width=True,
-            height=180
+            height=140
         )
     else:
         st.warning("Category data not available")
@@ -540,7 +540,7 @@ def executive_summary_tab(df):
     st.divider()
     
     # Overall Business Performance Metrics (moved below Enhanced Category Performance Summary)
-    st.subheader("Overall Business Performance")
+    st.subheader("Combined Business Performance")
     overall_metrics = calculate_overall_business_metrics(df)
     
     if overall_metrics:
@@ -551,7 +551,7 @@ def executive_summary_tab(df):
                 create_kpi_card(
                     "MoM Growth Rate",
                     f"{overall_metrics['overall_mom_growth']:+.1f}%" if overall_metrics['overall_mom_growth'] != 0 else "N/A",
-                    "Month-over-month growth in total sales. Measures business momentum and expansion rate.",
+                    "A decline in Month on Month sales , reflecting weaker short-term growth.",
                     '#00d4ff' if overall_metrics['overall_mom_growth'] >= 0 else '#ff4b4b'
                 ),
                 unsafe_allow_html=True
@@ -574,7 +574,8 @@ def executive_summary_tab(df):
                     "Total GMV",
                     format_currency(overall_metrics['total_gmv']),
                     "Gross merchandise value across all products and categories. Core business volume indicator.",
-                    COLORS['sales']
+                    '#4299e1'
+                    # COLORS['sales']
                 ),
                 unsafe_allow_html=True
             )
@@ -584,8 +585,9 @@ def executive_summary_tab(df):
                 create_kpi_card(
                     "Combined Profit Margin",
                     f"{overall_metrics['overall_margin']:.1f}%",
-                    "Overall profit margin across all products. Measures total business efficiency and profitability.",
-                    COLORS['profit_positive'] if overall_metrics['overall_margin'] > 0 else COLORS['profit_negative']
+                    "Profitability is moderate; costs are eating into margins, leaving room for efficiency gains.", 
+                    '#ed8936'
+                    # COLORS['profit_positive'] if overall_metrics['overall_margin'] > 0 else COLORS['profit_negative']
                 ),
                 unsafe_allow_html=True
             )
@@ -602,7 +604,7 @@ def sales_analysis_tab(df):
     with col1:
         chart_container = st.container()
         with chart_container:
-            st.subheader("Sales by Category")
+            # st.subheader("Sales by Category")
             category_data = sales_by_category(df)
             if not category_data.empty:
                 fig = px.bar(
@@ -622,14 +624,14 @@ def sales_analysis_tab(df):
     with col2:
         chart_container = st.container()
         with chart_container:
-            st.subheader("Monthly Sales Trend")
+            # st.subheader("Monthly Sales Trend")
             monthly_data = monthly_sales(df)
             if not monthly_data.empty:
                 fig = px.line(
                     monthly_data,
                     x='order_date',
                     y='sales',
-                    title="Sales Performance Over Time",
+                    title="Sales Performance Over Time(every 2 quarters)",
                     markers=True,
                     color_discrete_sequence=[COLORS['sales']]
                 )
@@ -644,7 +646,6 @@ def sales_analysis_tab(df):
     # Aligned sales performance table
     if 'category' in df.columns and 'sub_category' in df.columns:
         st.subheader("Top Performing Sub-Categories")
-        st.markdown("*Best performing products by total sales revenue*")
         
         # Get top 10 sub-categories by sales
         sales_summary = df.groupby(['sub_category', 'category']).agg({
@@ -672,35 +673,35 @@ def sales_analysis_tab(df):
                     sales_summary,
                     use_container_width=True,
                     hide_index=True,
-                    height=400
+                    height=380
                 )
         
-        with col2:
-            # Top performers container with matching header alignment
-            st.markdown("**Top Performers**")
-            performers_container = st.container()
-            with performers_container:
-                top_5 = sales_summary.head(5)
-                for idx, row in top_5.iterrows():
-                    st.markdown(
-                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid {COLORS['sales']};">
-                        <strong>{row['sub_category']}</strong><br>
-                        <small>{row['category']}</small><br>
-                        <span style="color: {COLORS['sales']};">{row['Total Sales']}</span>
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
+        # with col2:
+        #     # Top performers container with matching header alignment
+        #     st.markdown("**Top Performers**")
+        #     performers_container = st.container()
+        #     with performers_container:
+        #         top_5 = sales_summary.head(5)
+        #         for idx, row in top_5.iterrows():
+        #             st.markdown(
+        #                 f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 0.5rem; margin: 0.2rem 0; border-radius: 5px; border-left: 3px solid {COLORS['sales']};">
+        #                 <strong>{row['sub_category']}</strong><br>
+        #                 <small>{row['category']}</small><br>
+        #                 <span style="color: {COLORS['sales']};">{row['Total Sales']}</span>
+        #                 </div>""",
+        #                 unsafe_allow_html=True
+        #             )
 
 def profitability_tab(df):
     """Profitability Analysis Dashboard"""
     st.header("Profitability Analysis")
-    st.markdown("""**Profitability Insights:** These metrics identify which products and categories generate the highest profits versus losses. 
+    st.markdown("""These metrics identify which products and categories generate the highest profits versus losses. 
     Focus areas include sub-category profitability analysis and margin performance to optimize product mix and pricing strategies.""")
     
     profit_data, loss_makers = profit_by_subcategory(df)
     
     # Centered profit by sub-category chart
-    st.subheader("Profit by Sub-Category")
+    # st.subheader("Profit by Sub-Category")
     if not profit_data.empty:
         # Enhanced profit visualization with color coding (centered)
         fig = px.bar(
@@ -721,140 +722,140 @@ def profitability_tab(df):
     st.divider()
     
     # Detailed Loss Analysis Section
-    if not loss_makers.empty:
-        st.subheader("Detailed Loss Analysis")
-        st.markdown("**Understanding Loss-Making Sub-Categories and Strategic Recommendations**")
+    # if not loss_makers.empty:
+    #     st.subheader("Detailed Loss Analysis")
+    #     st.markdown("**Understanding Loss-Making Sub-Categories and Strategic Recommendations**")
         
-        # Create tabs for detailed analysis
-        loss_tab1, loss_tab2 = st.tabs(["📊 Loss Breakdown", "🎯 Strategic Insights"])
+    #     # Create tabs for detailed analysis
+    #     loss_tab1, loss_tab2 = st.tabs(["📊 Loss Breakdown", "🎯 Strategic Insights"])
         
-        with loss_tab1:
-            col1, col2 = st.columns([1, 1])
+    #     with loss_tab1:
+    #         col1, col2 = st.columns([1, 1])
             
-            with col1:
-                st.markdown("**Top Loss-Making Sub-Categories**")
-                for idx, row in loss_makers.iterrows():
-                    loss_amount = format_currency(abs(row['profit']))
-                    st.markdown(
-                        f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_negative']};">
-                        <strong style="color: {COLORS['profit_negative']};">{row['sub_category']}</strong><br>
-                        <span style="color: {COLORS['profit_negative']}; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
-                        </div>""",
-                        unsafe_allow_html=True
-                    )
+    #         with col1:
+    #             st.markdown("**Top Loss-Making Sub-Categories**")
+    #             for idx, row in loss_makers.iterrows():
+    #                 loss_amount = format_currency(abs(row['profit']))
+    #                 st.markdown(
+    #                     f"""<div style="background: {COLORS['card_bg']}; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; margin: 0.5rem 0; border-radius: 8px; border-left: 4px solid {COLORS['profit_negative']};">
+    #                     <strong style="color: {COLORS['profit_negative']};">{row['sub_category']}</strong><br>
+    #                     <span style="color: {COLORS['profit_negative']}; font-size: 1.1rem; font-weight: bold;">-{loss_amount}</span>
+    #                     </div>""",
+    #                     unsafe_allow_html=True
+    #                 )
             
-            with col2:
-                # Loss calculation methodology
-                st.markdown("**Loss Calculation Methodology**")
-                st.markdown("""
-                • **Profit Calculation**: Revenue - Cost of Goods Sold - Operating Expenses
-                • **Loss Identification**: Sub-categories where total profit < $0
-                • **Impact Measurement**: Absolute loss amount affecting overall profitability
-                • **Ranking**: Ordered by highest loss amount for priority action
-                """)
+    #         with col2:
+    #             # Loss calculation methodology
+    #             st.markdown("**Loss Calculation Methodology**")
+    #             st.markdown("""
+    #             • **Profit Calculation**: Revenue - Cost of Goods Sold - Operating Expenses
+    #             • **Loss Identification**: Sub-categories where total profit < $0
+    #             • **Impact Measurement**: Absolute loss amount affecting overall profitability
+    #             • **Ranking**: Ordered by highest loss amount for priority action
+    #             """)
                 
-                # Total loss metric card
-                total_loss = abs(loss_makers['profit'].sum())
-                st.markdown(
-                    f"""<div style="background: {COLORS['profit_negative']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-top: 1rem;">
-                    <h4 style="margin: 0; color: white;">Total Loss Impact</h4>
-                    <div style="font-size: 1.8rem; font-weight: bold; margin-top: 0.5rem;">{format_currency(total_loss)}</div>
-                    <small>From top 5 loss-makers</small>
-                    </div>""",
-                    unsafe_allow_html=True
-                )
+    #             # Total loss metric card
+    #             total_loss = abs(loss_makers['profit'].sum())
+    #             st.markdown(
+    #                 f"""<div style="background: {COLORS['profit_negative']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center; margin-top: 1rem;">
+    #                 <h4 style="margin: 0; color: white;">Total Loss Impact</h4>
+    #                 <div style="font-size: 1.8rem; font-weight: bold; margin-top: 0.5rem;">{format_currency(total_loss)}</div>
+    #                 <small>From top 5 loss-makers</small>
+    #                 </div>""",
+    #                 unsafe_allow_html=True
+    #             )
         
-        with loss_tab2:
-            st.markdown("**Strategic Recommendations for Loss Recovery**")
+    #     with loss_tab2:
+    #         st.markdown("**Strategic Recommendations for Loss Recovery**")
             
-            recommendations = [
-                "**Price Optimization**: Review pricing strategy for loss-making products to improve margins",
-                "**Cost Reduction**: Analyze supply chain and operational costs to reduce COGS",
-                "**Product Mix**: Consider discontinuing or bundling low-performing sub-categories",
-                "**Market Positioning**: Reposition products in higher-value market segments",
-                "**Volume Strategy**: Increase sales volume to achieve economies of scale",
-                "**Supplier Negotiation**: Renegotiate supplier contracts for better cost terms"
-            ]
+    #         recommendations = [
+    #             "**Price Optimization**: Review pricing strategy for loss-making products to improve margins",
+    #             "**Cost Reduction**: Analyze supply chain and operational costs to reduce COGS",
+    #             "**Product Mix**: Consider discontinuing or bundling low-performing sub-categories",
+    #             "**Market Positioning**: Reposition products in higher-value market segments",
+    #             "**Volume Strategy**: Increase sales volume to achieve economies of scale",
+    #             "**Supplier Negotiation**: Renegotiate supplier contracts for better cost terms"
+    #         ]
             
-            for i, rec in enumerate(recommendations, 1):
-                st.markdown(f"{i}. {rec}")
+    #         for i, rec in enumerate(recommendations, 1):
+    #             st.markdown(f"{i}. {rec}")
             
-            # Additional insights
-            if len(loss_makers) > 0:
-                biggest_loss = loss_makers.iloc[0]
-                st.info(f"💡 **Priority Focus**: '{biggest_loss['sub_category']}' shows the highest loss of {format_currency(abs(biggest_loss['profit']))}. Immediate action recommended.")
-    else:
-        st.markdown(
-            """<div style="background: #d4edda; color: #155724; padding: 1.5rem; border-radius: 10px; text-align: center;">
-            <h4 style="margin: 0;">✅ Excellent Performance</h4>
-            <p style="margin: 0.5rem 0 0 0;">No loss-making sub-categories found</p>
-            </div>""",
-            unsafe_allow_html=True
-        )
+    #         # Additional insights
+    #         if len(loss_makers) > 0:
+    #             biggest_loss = loss_makers.iloc[0]
+    #             st.info(f"💡 **Priority Focus**: '{biggest_loss['sub_category']}' shows the highest loss of {format_currency(abs(biggest_loss['profit']))}. Immediate action recommended.")
+    # else:
+    #     st.markdown(
+    #         """<div style="background: #d4edda; color: #155724; padding: 1.5rem; border-radius: 10px; text-align: center;">
+    #         <h4 style="margin: 0;">✅ Excellent Performance</h4>
+    #         <p style="margin: 0.5rem 0 0 0;">No loss-making sub-categories found</p>
+    #         </div>""",
+    #         unsafe_allow_html=True
+    #     )
         
-        # Additional profitability metrics when no losses exist
-        st.subheader("Profitability Health Metrics")
-        st.markdown("**Comprehensive profitability analysis showing business health indicators**")
+    #     # Additional profitability metrics when no losses exist
+    #     st.subheader("Profitability Health Metrics")
+    #     st.markdown("**Comprehensive profitability analysis showing business health indicators**")
         
-        # Calculate detailed metrics
-        total_profit = df['profit'].sum()
-        total_sales = df['sales'].sum()
-        overall_margin = (total_profit / total_sales * 100) if total_sales > 0 else 0
-        profitable_subcats = len(df.groupby('sub_category')['profit'].sum()[df.groupby('sub_category')['profit'].sum() > 0])
-        total_subcats = len(df['sub_category'].unique()) if 'sub_category' in df.columns else 0
+    #     # Calculate detailed metrics
+    #     total_profit = df['profit'].sum()
+    #     total_sales = df['sales'].sum()
+    #     overall_margin = (total_profit / total_sales * 100) if total_sales > 0 else 0
+    #     profitable_subcats = len(df.groupby('sub_category')['profit'].sum()[df.groupby('sub_category')['profit'].sum() > 0])
+    #     total_subcats = len(df['sub_category'].unique()) if 'sub_category' in df.columns else 0
         
-        col1, col2, col3, col4 = st.columns(4)
+    #     col1, col2, col3, col4 = st.columns(4)
         
-        with col1:
-            st.markdown(
-                f"""<div style="background: {COLORS['profit_positive']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Overall Profit Margin</div>
-                <div style="font-size: 2rem; font-weight: bold;">{overall_margin:.1f}%</div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">Healthy margin indicator</div>
-                </div>""",
-                unsafe_allow_html=True
-            )
+    #     with col1:
+    #         st.markdown(
+    #             f"""<div style="background: {COLORS['profit_positive']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+    #             <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Overall Profit Margin</div>
+    #             <div style="font-size: 2rem; font-weight: bold;">{overall_margin:.1f}%</div>
+    #             <div style="font-size: 0.8rem; opacity: 0.8;">Healthy margin indicator</div>
+    #             </div>""",
+    #             unsafe_allow_html=True
+    #         )
         
-        with col2:
-            st.markdown(
-                f"""<div style="background: {COLORS['sales']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Total Profit</div>
-                <div style="font-size: 1.6rem; font-weight: bold;">{format_currency(total_profit)}</div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">Total business profit</div>
-                </div>""",
-                unsafe_allow_html=True
-            )
+    #     with col2:
+    #         st.markdown(
+    #             f"""<div style="background: {COLORS['sales']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+    #             <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Total Profit</div>
+    #             <div style="font-size: 1.6rem; font-weight: bold;">{format_currency(total_profit)}</div>
+    #             <div style="font-size: 0.8rem; opacity: 0.8;">Total business profit</div>
+    #             </div>""",
+    #             unsafe_allow_html=True
+    #         )
         
-        with col3:
-            profitability_rate = (profitable_subcats / total_subcats * 100) if total_subcats > 0 else 0
-            st.markdown(
-                f"""<div style="background: {COLORS['accent']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Profitability Rate</div>
-                <div style="font-size: 2rem; font-weight: bold;">{profitability_rate:.0f}%</div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">Profitable sub-categories</div>
-                </div>""",
-                unsafe_allow_html=True
-            )
+    #     with col3:
+    #         profitability_rate = (profitable_subcats / total_subcats * 100) if total_subcats > 0 else 0
+    #         st.markdown(
+    #             f"""<div style="background: {COLORS['accent']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+    #             <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Profitability Rate</div>
+    #             <div style="font-size: 2rem; font-weight: bold;">{profitability_rate:.0f}%</div>
+    #             <div style="font-size: 0.8rem; opacity: 0.8;">Profitable sub-categories</div>
+    #             </div>""",
+    #             unsafe_allow_html=True
+    #         )
         
-        with col4:
-            # Calculate risk score (lower is better)
-            risk_score = max(0, 100 - overall_margin * 2)  # Simple risk calculation
-            risk_color = COLORS['profit_positive'] if risk_score < 30 else '#ffc107' if risk_score < 60 else COLORS['profit_negative']
-            st.markdown(
-                f"""<div style="background: {risk_color}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
-                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Risk Score</div>
-                <div style="font-size: 2rem; font-weight: bold;">{risk_score:.0f}</div>
-                <div style="font-size: 0.8rem; opacity: 0.8;">Lower is better</div>
-                </div>""",
-                unsafe_allow_html=True
-            )
+    #     with col4:
+    #         # Calculate risk score (lower is better)
+    #         risk_score = max(0, 100 - overall_margin * 2)  # Simple risk calculation
+    #         risk_color = COLORS['profit_positive'] if risk_score < 30 else '#ffc107' if risk_score < 60 else COLORS['profit_negative']
+    #         st.markdown(
+    #             f"""<div style="background: {risk_color}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+    #             <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Risk Score</div>
+    #             <div style="font-size: 2rem; font-weight: bold;">{risk_score:.0f}</div>
+    #             <div style="font-size: 0.8rem; opacity: 0.8;">Lower is better</div>
+    #             </div>""",
+    #             unsafe_allow_html=True
+    #         )
     
-    st.divider()
+    # st.divider()
     
     # Aligned profit margin analysis
     if 'category' in df.columns:
         st.subheader("Profit Margin Analysis by Category")
-        st.markdown("*Category-wise profitability comparison*")
+        # st.markdown("*Category-wise profitability comparison*")
         
         margin_data = df.groupby('category').agg({
             'sales': 'sum',
@@ -903,7 +904,7 @@ def profitability_tab(df):
                     margin_display_clean,
                     hide_index=True,
                     use_container_width=True,
-                    height=200
+                    height=140
                 )
 
 def geography_tab(df):
@@ -913,9 +914,9 @@ def geography_tab(df):
     high-performing markets and expansion opportunities. Rankings help prioritize resource allocation and market focus.""")
     
     # Top States Revenue Analysis
-    st.subheader("Top States Revenue Analysis")
+    # st.subheader("Top States Revenue Analysis")
     
-    # Get top 10 states data
+    # Get top 5 states data
     top_states_data = top_states(df, n=10)
     if not top_states_data.empty:
         # Create bar chart for top states
@@ -923,7 +924,7 @@ def geography_tab(df):
             top_states_data,
             x='state',
             y='sales',
-            title="Top 10 States by Revenue Performance",
+            title="Top 5 States by Revenue Performance",
             color_discrete_sequence=[COLORS['accent']]
         )
         fig_states.update_layout(height=500, showlegend=False)
@@ -940,10 +941,10 @@ def geography_tab(df):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("Top 10 States Performance")
+        st.subheader("Top 5 States Performance")
         states_summary = top_states(df, n=10)
         if not states_summary.empty:
-            st.markdown("**State Performance Summary**")
+            # st.markdown("**State Performance Summary**")
             # Styled state data display
             states_summary['Sales_Formatted'] = states_summary['sales'].apply(format_currency)
             
@@ -964,10 +965,10 @@ def geography_tab(df):
             st.warning("State data not available")
     
     with col2:
-        st.subheader("Top 10 Cities Performance")
+        st.subheader("Top 5 Cities Performance")
         cities_summary = top_cities(df, n=10)
         if not cities_summary.empty:
-            st.markdown("**City Performance Summary**")
+            # st.markdown("**City Performance Summary**")
             # Styled city data display
             cities_summary['Sales_Formatted'] = cities_summary['sales'].apply(format_currency)
             
@@ -997,7 +998,7 @@ def geography_tab(df):
             cities_data,
             x='city',
             y='sales',
-            title="Top 10 Cities by Revenue",
+            title="Top 5 Cities by Revenue",
             color_discrete_sequence=[COLORS['profit_positive']]
         )
         fig_cities.update_layout(height=400, showlegend=False)
@@ -1014,7 +1015,7 @@ def operations_tab(df):
     Key metrics include average order size, total items sold, and orders per customer to optimize operational processes.""")
     
     # Shipping mode analysis with better alignment
-    st.subheader("Shipping Mode Profitability")
+    # st.subheader("Shipping Mode Profitability")
     shipping_data = ship_mode_profit(df)
     if not shipping_data.empty:
         col1, col2 = st.columns([2, 1])
@@ -1211,12 +1212,12 @@ def what_if_calculator_tab(df):
         for insight in insights:
             st.markdown(f"• {insight}")
         
-        # Recommendations
-        st.subheader("Recommendations")
-        if simulation['delta_profit'] >= 0:
-            st.success(f"**Recommended**: {target_discount}% discount policy could improve profitability")
-        else:
-            st.error(f"**Caution**: {target_discount}% discount policy may significantly impact profits")
+        # # Recommendations
+        # st.subheader("Recommendations")
+        # if simulation['delta_profit'] >= 0:
+        #     st.success(f"**Recommended**: {target_discount}% discount policy could improve profitability")
+        # else:
+        #     st.error(f"**Caution**: {target_discount}% discount policy may significantly impact profits")
             
     else:
         st.warning("Unable to create discount simulation. Discount data may be missing.")
@@ -1244,47 +1245,47 @@ def main():
     st.title("Superstore Insights Dashboard")
     
     # Business Terminology and Metrics Guide
-    with st.expander("📊 Business Metrics & Terminology Guide", expanded=False):
+    with st.expander("Business Metrics & Terminology Guide", expanded=False):
         st.markdown("""
         ### Key Performance Indicators (KPIs)
         
-        **GMV (Gross Merchandise Value)**: Total value of all sales transactions before any deductions. Shows overall business volume and market size.
+        - **GMV (Gross Merchandise Value)**: Total value of all sales transactions before any deductions. Shows overall business volume and market size.
         
-        **Revenue/Sales**: Actual income received from customers after discounts but before costs. Key indicator of business performance.
+        - **Revenue/Sales**: Actual income received from customers after discounts but before costs. Key indicator of business performance.
         
-        **Profit Margin**: Percentage of revenue remaining after all costs. Higher margins indicate better operational efficiency.
+        - **Profit Margin**: Percentage of revenue remaining after all costs. Higher margins indicate better operational efficiency.
         
-        **CAC (Customer Acquisition Cost)**: Average cost to acquire a new customer through marketing and sales efforts. Lower CAC improves profitability.
+        - **CAC (Customer Acquisition Cost)**: Average cost to acquire a new customer through marketing and sales efforts. Lower CAC improves profitability.
         
         ### Business Strategy Terms
         
-        **MOAT (Economic Moat)**: Competitive advantages that protect a business from competitors. Can include brand loyalty, cost advantages, or market dominance.
+        - **MOAT (Economic Moat)**: Competitive advantages that protect a business from competitors. Can include brand loyalty, cost advantages, or market dominance.
         
-        **LTV (Lifetime Value)**: Total revenue expected from a customer over their entire relationship with the business. Higher LTV justifies higher CAC.
+        - **LTV (Lifetime Value)**: Total revenue expected from a customer over their entire relationship with the business. Higher LTV justifies higher CAC.
         
-        **Churn Rate**: Percentage of customers who stop buying over a specific period. Lower churn indicates better customer retention.
+        - **Churn Rate**: Percentage of customers who stop buying over a specific period. Lower churn indicates better customer retention.
         
-        **AOV (Average Order Value)**: Average amount spent per transaction. Increasing AOV improves revenue without acquiring new customers.
+        - **AOV (Average Order Value)**: Average amount spent per transaction. Increasing AOV improves revenue without acquiring new customers.
         
         ### Financial Metrics
         
-        **ROAS (Return on Ad Spend)**: Revenue generated for every dollar spent on advertising. Measures marketing effectiveness.
+        - **ROAS (Return on Ad Spend)**: Revenue generated for every dollar spent on advertising. Measures marketing effectiveness.
         
-        **Gross Margin**: Revenue minus cost of goods sold, expressed as percentage. Shows pricing power and operational efficiency.
+        - **Gross Margin**: Revenue minus cost of goods sold, expressed as percentage. Shows pricing power and operational efficiency.
         
-        **Net Margin**: Final profit after all expenses, taxes, and costs. Ultimate measure of business profitability.
+        - **Net Margin**: Final profit after all expenses, taxes, and costs. Ultimate measure of business profitability.
         
-        **EBITDA**: Earnings before interest, taxes, depreciation, and amortization. Shows operational performance without financial structure effects.
+        - **EBITDA**: Earnings before interest, taxes, depreciation, and amortization. Shows operational performance without financial structure effects.
         
         ### Operational Terms
         
-        **Inventory Turnover**: How quickly inventory is sold and replaced. Higher turnover indicates efficient inventory management.
+        - **Inventory Turnover**: How quickly inventory is sold and replaced. Higher turnover indicates efficient inventory management.
         
-        **Conversion Rate**: Percentage of prospects who become paying customers. Key metric for sales and marketing effectiveness.
+        - **Conversion Rate**: Percentage of prospects who become paying customers. Key metric for sales and marketing effectiveness.
         
-        **Market Share**: Company's portion of total industry sales. Indicates competitive position and growth potential.
+        - **Market Share**: Company's portion of total industry sales. Indicates competitive position and growth potential.
         
-        **Unit Economics**: Profitability metrics for individual products or customers. Essential for scaling business models sustainably.
+        - **Unit Economics**: Profitability metrics for individual products or customers. Essential for scaling business models sustainably.
         """)
     
     # Create tabs
