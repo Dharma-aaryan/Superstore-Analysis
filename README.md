@@ -1,64 +1,54 @@
-Superstore Insights – Data Analysis & Business Performance Dashboard
-📌 Project Overview
+# 📊 Customer Churn Insights Dashboard
 
-Superstore Insights is a retail data analysis project designed to evaluate overall business performance, customer behavior, and operational efficiency. The project leverages Python, SQL, and visualization tools to extract insights from transactional sales data and present them in an interactive executive dashboard.
+Customer Churn Insights is an interactive analytics and machine learning dashboard built with **Python, Streamlit, Scikit-learn, and Plotly**, designed to analyze telecom customer churn and provide **actionable business insights**. It combines predictive modeling with **business-focused ROI calculations** to support decision-making for retention strategies.
 
-The focus is on identifying trends, patterns, and KPIs that drive business growth, improve profitability, and guide data-driven decision-making.
+---
 
-🚀 Key Features
+## 🚀 Features
 
-Executive KPI Dashboard:
+- 🔍 **Executive Summary with KPIs** — Churn Rate, At-Risk Customers, Potential Customers Saved, Estimated Savings, ROI %  
+- 🧩 **Segments & Drivers** — high-risk cohorts, top churn drivers with plain-English explanations  
+- 🛠 **Retention Planner** — threshold slider, cost/value inputs, Net ROI & ROI % calculations  
+- 📈 **Model Evaluation** — Accuracy, Precision, Recall, F1, ROC-AUC, PR-AUC, confusion matrix, ROC/PR curves  
+- 📂 **Data & Quality checks** — dataset snapshot, missing values, contract distributions
 
-MoM Growth Rate (Sales Momentum)
+---
 
-Gross Merchandise Value (GMV)
+## 🛠️ Tech Stack
 
-Profit Margins (Gross, Net, Combined)
+| Layer            | Tech                                                                 |
+|------------------|----------------------------------------------------------------------|
+| Frontend / UI    | Streamlit                                                            |
+| ML Models        | Scikit-learn (Logistic Regression, Random Forest)                    |
+| Imbalance Handle | imbalanced-learn (SMOTE)                                             |
+| Data Wrangling   | pandas, NumPy                                                        |
+| Visualization    | Matplotlib, Plotly                                                   |
+| Explainability   | SHAP *(optional)*                                                    |
 
-Customer Acquisition Cost (CAC)
+---
 
-Sales & Profitability Analysis:
+The Churn Insights Dashboard runs as a **Streamlit web application** that integrates **data preprocessing, machine learning models, explainability, and ROI-focused retention planning**.
 
-Category- and region-wise performance
+The app ingests the **Telco Customer Churn** dataset, preprocesses categorical and numerical features, trains and evaluates models with cross-validation, and surfaces insights in a **five-tab business-oriented interface**:
 
-Trend analysis of revenue & margins
+1. **Executive Summary** – KPIs and quick business impact snapshot  
+2. **Segments & Drivers** – high-risk groups and churn drivers  
+3. **Retention Planner** – scenario planning with ROI calculations  
+4. **Details & Methods** – metrics, confusion matrix, ROC & PR curves  
+5. **Data & Quality** – dataset overview and health checks
 
-Customer retention vs. churn indicators
+All metrics and ROI values are calculated based on **user-adjustable assumptions** (threshold, cost per contact, value saved). **Exports** are available for metrics, feature importance, and scored customers.
 
-Operational Insights:
+---
 
-Inventory turnover & stock efficiency
+## ▶️ Quick Start
 
-Average Order Value (AOV) & unit economics
+```bash
+# 1) Create env
+python -m venv .venv && source .venv/bin/activate   # (Windows: .venv\Scripts\activate)
 
-Market share analysis across product categories
+# 2) Install deps
+pip install -r requirements.txt
 
-🛠️ Tech Stack
-
-Python → pandas, NumPy, Matplotlib, Plotly
-
-SQL → for querying and ETL
-
-Streamlit → for building the interactive dashboard
-
-Excel / Power BI → visualization and ad-hoc reporting
-
-📊 Example KPIs
-
-MoM Growth Rate: Sales dropped 14.4% from last month, signaling a slowdown in momentum.
-
-Overall CAC: $355.74, indicating high acquisition costs that may affect profitability.
-
-Total GMV: $21.64M, reflecting strong business volume.
-
-Profit Margin: 16.0%, moderate profitability with room for efficiency gains.
-
-🔑 Business Impact
-
-Delivered an executive-ready dashboard for retail performance monitoring.
-
-Identified declining MoM growth and rising CAC as key challenges to address.
-
-Highlighted top-performing categories and opportunities to improve margins.
-
-Provided insights to support strategic decisions in pricing, marketing, and inventory planning.
+# 3) Run app
+streamlit run app.py
