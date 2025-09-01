@@ -429,7 +429,7 @@ def executive_summary_tab(df):
                 "GMV (Gross Merchandise Value)",
                 format_currency(kpis['gmv']),
                 "Total revenue generated from all sales transactions. Measures market size and business scale.",
-                COLORS['sales']
+                '#4299e1'  # Lighter blue - more readable
             ),
             unsafe_allow_html=True
         )
@@ -440,7 +440,7 @@ def executive_summary_tab(df):
                 "Gross Profit",
                 format_currency(kpis['gross_profit']),
                 "Total profit after direct costs. Key indicator of business profitability and operational efficiency.",
-                COLORS['profit_positive']
+                '#48bb78'  # Lighter green - more readable
             ),
             unsafe_allow_html=True
         )
@@ -451,7 +451,7 @@ def executive_summary_tab(df):
                 "Profit Margin",
                 f"{kpis['margin_pct']:.1f}%",
                 "Profit as percentage of sales. Measures pricing effectiveness and cost management efficiency.",
-                COLORS['profit_positive']
+                '#ed8936'  # Orange - good contrast and readability
             ),
             unsafe_allow_html=True
         )
@@ -462,7 +462,7 @@ def executive_summary_tab(df):
                 "Total Orders",
                 f"{kpis['orders']:,}",
                 "Number of unique transactions. Indicates customer engagement and business volume.",
-                COLORS['neutral']
+                '#9f7aea'  # Purple - softer and more readable
             ),
             unsafe_allow_html=True
         )
@@ -647,7 +647,7 @@ def sales_analysis_tab(df):
         st.markdown("*Best performing products by total sales revenue*")
         
         # Get top 10 sub-categories by sales
-        sales_summary = df.groupby(['category', 'sub_category']).agg({
+        sales_summary = df.groupby(['sub_category', 'category']).agg({
             'sales': 'sum',
             'profit': 'sum',
             'order_id': 'nunique' if 'order_id' in df.columns else 'count'
@@ -791,6 +791,63 @@ def profitability_tab(df):
             </div>""",
             unsafe_allow_html=True
         )
+        
+        # Additional profitability metrics when no losses exist
+        st.subheader("Profitability Health Metrics")
+        st.markdown("**Comprehensive profitability analysis showing business health indicators**")
+        
+        # Calculate detailed metrics
+        total_profit = df['profit'].sum()
+        total_sales = df['sales'].sum()
+        overall_margin = (total_profit / total_sales * 100) if total_sales > 0 else 0
+        profitable_subcats = len(df.groupby('sub_category')['profit'].sum()[df.groupby('sub_category')['profit'].sum() > 0])
+        total_subcats = len(df['sub_category'].unique()) if 'sub_category' in df.columns else 0
+        
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(
+                f"""<div style="background: {COLORS['profit_positive']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Overall Profit Margin</div>
+                <div style="font-size: 2rem; font-weight: bold;">{overall_margin:.1f}%</div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">Healthy margin indicator</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
+        
+        with col2:
+            st.markdown(
+                f"""<div style="background: {COLORS['sales']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Total Profit</div>
+                <div style="font-size: 1.6rem; font-weight: bold;">{format_currency(total_profit)}</div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">Total business profit</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
+        
+        with col3:
+            profitability_rate = (profitable_subcats / total_subcats * 100) if total_subcats > 0 else 0
+            st.markdown(
+                f"""<div style="background: {COLORS['accent']}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Profitability Rate</div>
+                <div style="font-size: 2rem; font-weight: bold;">{profitability_rate:.0f}%</div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">Profitable sub-categories</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
+        
+        with col4:
+            # Calculate risk score (lower is better)
+            risk_score = max(0, 100 - overall_margin * 2)  # Simple risk calculation
+            risk_color = COLORS['profit_positive'] if risk_score < 30 else '#ffc107' if risk_score < 60 else COLORS['profit_negative']
+            st.markdown(
+                f"""<div style="background: {risk_color}; color: white; padding: 1.5rem; border-radius: 10px; text-align: center;">
+                <div style="font-size: 0.9rem; margin-bottom: 0.5rem; opacity: 0.9;">Risk Score</div>
+                <div style="font-size: 2rem; font-weight: bold;">{risk_score:.0f}</div>
+                <div style="font-size: 0.8rem; opacity: 0.8;">Lower is better</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
     
     st.divider()
     
@@ -855,75 +912,27 @@ def geography_tab(df):
     st.markdown("""**Geographic Revenue Analysis:** These metrics show revenue performance across states and cities to identify 
     high-performing markets and expansion opportunities. Rankings help prioritize resource allocation and market focus.""")
     
-    # Top 10 States and Cities Map Visualization
-    st.subheader("Geographic Revenue Map")
-    states_data = top_states(df, n=50)  # Get more states for map
+    # Top States Revenue Analysis
+    st.subheader("Top States Revenue Analysis")
     
-    if not states_data.empty and 'state' in df.columns:
-        try:
-            # Create a mapping from state names to abbreviations for the map
-            state_name_to_abbrev = {
-                'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
-                'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
-                'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
-                'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
-                'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
-                'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
-                'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
-                'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-                'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
-                'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
-            }
-            
-            # Create map data with state abbreviations
-            map_data = states_data.copy()
-            map_data['state_abbrev'] = map_data['state'].map(state_name_to_abbrev)
-            
-            # Filter out states that don't have abbreviations (in case of data issues)
-            map_data = map_data.dropna(subset=['state_abbrev'])
-            
-            if not map_data.empty:
-                # Create choropleth map for states
-                fig_map = px.choropleth(
-                    map_data,
-                    locations='state_abbrev',
-                    locationmode='USA-states',
-                    color='sales',
-                    hover_name='state',
-                    hover_data={'sales': ':$,.0f', 'state_abbrev': False},
-                    color_continuous_scale=['#f0f0f0', COLORS['sales'], COLORS['accent']],
-                    scope='usa',
-                    title="Revenue Distribution Across States",
-                    labels={'sales': 'Revenue ($)'}
-                )
-                fig_map.update_layout(
-                    height=500,
-                    geo=dict(
-                        bgcolor='rgba(0,0,0,0)',
-                        showframe=False,
-                        showcoastlines=True,
-                        projection_type='albers usa'
-                    )
-                )
-                st.plotly_chart(fig_map, use_container_width=True)
-            else:
-                raise ValueError("No valid state data for mapping")
-        except Exception as e:
-            st.warning("Map visualization not available. Showing bar chart instead.")
-            # Fallback to bar chart
-            top_states_data = top_states(df, n=10)
-            if not top_states_data.empty:
-                fig_bar = px.bar(
-                    top_states_data,
-                    x='state',
-                    y='sales',
-                    title="Top 10 States by Revenue",
-                    color_discrete_sequence=[COLORS['accent']]
-                )
-                fig_bar.update_layout(height=400, showlegend=False)
-                fig_bar.update_yaxes(tickformat='$,.0f')
-                fig_bar.update_xaxes(tickangle=45)
-                st.plotly_chart(fig_bar, use_container_width=True)
+    # Get top 10 states data
+    top_states_data = top_states(df, n=10)
+    if not top_states_data.empty:
+        # Create bar chart for top states
+        fig_states = px.bar(
+            top_states_data,
+            x='state',
+            y='sales',
+            title="Top 10 States by Revenue Performance",
+            color_discrete_sequence=[COLORS['accent']]
+        )
+        fig_states.update_layout(height=500, showlegend=False)
+        fig_states.update_yaxes(tickformat='$,.0f')
+        fig_states.update_xaxes(tickangle=45, title="State")
+        fig_states.update_traces(marker_color=COLORS['accent'])
+        st.plotly_chart(fig_states, use_container_width=True)
+    else:
+        st.warning("State data not available")
     
     st.divider()
     
