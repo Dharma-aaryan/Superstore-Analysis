@@ -469,7 +469,77 @@ def executive_summary_tab(df):
     
     st.divider()
     
-    # Overall Business Performance Metrics
+    # Enhanced overview charts with better alignment
+    st.subheader("Business Overview")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Sales performance chart
+        st.markdown("#### Sales Performance by Category")
+        category_data = sales_by_category(df)
+        if not category_data.empty:
+            # Enhanced donut chart with consistent colors
+            fig1 = px.pie(
+                category_data,
+                values='sales',
+                names='category',
+                title="Revenue Distribution Across Categories",
+                hole=0.4,
+                color_discrete_sequence=[COLORS['sales'], COLORS['accent'], COLORS['neutral'], '#9467bd', '#8c564b']
+            )
+            fig1.update_traces(textposition='inside', textinfo='percent+label')
+            fig1.update_layout(height=400, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2))
+            st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        # Sales Growth Trajectory Over Time
+        st.markdown("#### Monthly Sales Trend Analysis")
+        monthly_data = monthly_sales(df)
+        if not monthly_data.empty:
+            # Enhanced line chart with area fill
+            fig2 = px.area(
+                monthly_data,
+                x='order_date',
+                y='sales',
+                title="Sales Growth Trajectory Over Time",
+                color_discrete_sequence=[COLORS['sales']]
+            )
+            fig2.update_layout(height=400, showlegend=False)
+            fig2.update_yaxes(tickformat='$,.0f')
+            st.plotly_chart(fig2, use_container_width=True)
+        else:
+            st.warning("Time series data not available")
+    
+    # Enhanced category analysis with business metrics (expanded horizontally)
+    enhanced_data = enhanced_category_analysis(df)
+    if not enhanced_data.empty:
+        st.markdown("**Enhanced Category Performance Summary**")
+        display_columns = [
+            'category', 'sales_formatted', 'market_share', 
+            'mom_growth_formatted', 'profit_status', 'cac_formatted'
+        ]
+        column_names = {
+            'category': 'Category',
+            'sales_formatted': 'Sales',
+            'market_share': 'Share (%)',
+            'mom_growth_formatted': 'MoM Growth',
+            'profit_status': 'Profitability',
+            'cac_formatted': 'Est. CAC'
+        }
+        
+        st.dataframe(
+            enhanced_data[display_columns].rename(columns=column_names),
+            hide_index=True,
+            use_container_width=True,
+            height=180
+        )
+    else:
+        st.warning("Category data not available")
+    
+    st.divider()
+    
+    # Overall Business Performance Metrics (moved below Enhanced Category Performance Summary)
     st.subheader("Overall Business Performance")
     overall_metrics = calculate_overall_business_metrics(df)
     
@@ -519,54 +589,6 @@ def executive_summary_tab(df):
                 ),
                 unsafe_allow_html=True
             )
-    
-    st.divider()
-    
-    # Enhanced overview charts with better alignment
-    st.subheader("Business Overview")
-    
-    # Sales performance chart in full width
-    st.markdown("#### Sales Performance by Category")
-    category_data = sales_by_category(df)
-    if not category_data.empty:
-        # Enhanced donut chart with consistent colors
-        fig1 = px.pie(
-            category_data,
-            values='sales',
-            names='category',
-            title="Revenue Distribution Across Categories",
-            hole=0.4,
-            color_discrete_sequence=[COLORS['sales'], COLORS['accent'], COLORS['neutral'], '#9467bd', '#8c564b']
-        )
-        fig1.update_traces(textposition='inside', textinfo='percent+label')
-        fig1.update_layout(height=400, showlegend=True, legend=dict(orientation="h", yanchor="bottom", y=-0.2))
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    # Enhanced category analysis with business metrics (expanded horizontally)
-    enhanced_data = enhanced_category_analysis(df)
-    if not enhanced_data.empty:
-        st.markdown("**Enhanced Category Performance Summary**")
-        display_columns = [
-            'category', 'sales_formatted', 'market_share', 
-            'mom_growth_formatted', 'profit_status', 'cac_formatted'
-        ]
-        column_names = {
-            'category': 'Category',
-            'sales_formatted': 'Sales',
-            'market_share': 'Share (%)',
-            'mom_growth_formatted': 'MoM Growth',
-            'profit_status': 'Profitability',
-            'cac_formatted': 'Est. CAC'
-        }
-        
-        st.dataframe(
-            enhanced_data[display_columns].rename(columns=column_names),
-            hide_index=True,
-            use_container_width=True,
-            height=180
-        )
-    else:
-        st.warning("Category data not available")
 
 def sales_analysis_tab(df):
     """Sales Analysis Dashboard"""
@@ -638,11 +660,12 @@ def sales_analysis_tab(df):
         sales_summary['Total Sales'] = sales_summary['Total Sales'].apply(format_currency)
         sales_summary['Total Profit'] = sales_summary['Total Profit'].apply(format_currency)
         
-        # Display top performers in a horizontally aligned section
+        # Display top performers in a horizontally aligned section with aligned headers
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Table container with consistent height
+            # Table container with header alignment
+            st.markdown("**Best Performing Products by Total Sales Revenue**")
             table_container = st.container()
             with table_container:
                 st.dataframe(
@@ -653,10 +676,10 @@ def sales_analysis_tab(df):
                 )
         
         with col2:
-            # Top performers container with matching height
+            # Top performers container with matching header alignment
+            st.markdown("**Top Performers**")
             performers_container = st.container()
             with performers_container:
-                st.markdown("**Top Performers**")
                 top_5 = sales_summary.head(5)
                 for idx, row in top_5.iterrows():
                     st.markdown(
@@ -838,29 +861,53 @@ def geography_tab(df):
     
     if not states_data.empty and 'state' in df.columns:
         try:
-            # Create choropleth map for states
-            fig_map = px.choropleth(
-                states_data,
-                locations='state',
-                locationmode='USA-states',
-                color='sales',
-                hover_name='state',
-                hover_data={'sales': ':$,.0f'},
-                color_continuous_scale=['#f0f0f0', COLORS['sales'], COLORS['accent']],
-                scope='usa',
-                title="Revenue Distribution Across States",
-                labels={'sales': 'Revenue ($)'}
-            )
-            fig_map.update_layout(
-                height=500,
-                geo=dict(
-                    bgcolor='rgba(0,0,0,0)',
-                    showframe=False,
-                    showcoastlines=True,
-                    projection_type='albers usa'
+            # Create a mapping from state names to abbreviations for the map
+            state_name_to_abbrev = {
+                'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+                'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+                'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+                'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+                'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+                'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+                'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+                'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+                'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+                'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+            }
+            
+            # Create map data with state abbreviations
+            map_data = states_data.copy()
+            map_data['state_abbrev'] = map_data['state'].map(state_name_to_abbrev)
+            
+            # Filter out states that don't have abbreviations (in case of data issues)
+            map_data = map_data.dropna(subset=['state_abbrev'])
+            
+            if not map_data.empty:
+                # Create choropleth map for states
+                fig_map = px.choropleth(
+                    map_data,
+                    locations='state_abbrev',
+                    locationmode='USA-states',
+                    color='sales',
+                    hover_name='state',
+                    hover_data={'sales': ':$,.0f', 'state_abbrev': False},
+                    color_continuous_scale=['#f0f0f0', COLORS['sales'], COLORS['accent']],
+                    scope='usa',
+                    title="Revenue Distribution Across States",
+                    labels={'sales': 'Revenue ($)'}
                 )
-            )
-            st.plotly_chart(fig_map, use_container_width=True)
+                fig_map.update_layout(
+                    height=500,
+                    geo=dict(
+                        bgcolor='rgba(0,0,0,0)',
+                        showframe=False,
+                        showcoastlines=True,
+                        projection_type='albers usa'
+                    )
+                )
+                st.plotly_chart(fig_map, use_container_width=True)
+            else:
+                raise ValueError("No valid state data for mapping")
         except Exception as e:
             st.warning("Map visualization not available. Showing bar chart instead.")
             # Fallback to bar chart
